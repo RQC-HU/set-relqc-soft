@@ -36,7 +36,7 @@ SCRIPT_PATH=$(cd $(dirname "$0") && pwd)
 if ! type ifort > /dev/null; then
 	echo "intel fortran compiler (ifort) doesn't exist. We should build intel fortran."
 	echo "Please install intel fortran and try again.(ref https://www.intel.com/content/www/us/en/developer/tools/oneapi/toolkits.html)"
-	echo "You can also install intel fortran by running the following command(sudo authority is required): "
+	echo "You can also install intel fortran by running the following command(sudo authority and internet access are required): "
 	echo "> sudo sh ${SCRIPT_PATH}/intel-fortran.sh"
 	exit 1
 else
