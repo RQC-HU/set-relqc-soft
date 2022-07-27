@@ -23,9 +23,8 @@ function setup_cmake () {
 	cd "${SCRIPT_PATH}"
 }
 
-function setup_openmpi() {
+function build_openmpi() {
 	# openmpi (8-byte integer)
-	OMPI_VERSION=$1
 	cd "${SCRIPT_PATH}"
 	OMPI_TARBALL="./openmpi/openmpi-${OMPI_VERSION}.tar.bz2"
 	OMPI_INSTALL_PREFIX="${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}-intel"
@@ -36,29 +35,50 @@ function setup_openmpi() {
 	make && make install && make check
 }
 
+function setup_openmpi() {
+	OPENMPI_NPROCS=$(( $SETUP_NPROCS / 2 ))
+	if (( $OPENMPI_NPROCS < 1 )); then
+		# Serial build
+		echo "CMake will be built in serial mode."
+		# Build OpenMPI 3.1.0 (intel fortran)
+		OMPI_VERSION="3.1.0"
+		build_openmpi
+		# Build OpenMPI 4.1.2 (intel fortran)
+		OMPI_VERSION="4.1.2"
+		build_openmpi
+	else
+		# Parallel build
+		echo "CMake will be built in parallel mode."
+		# Build OpenMPI 3.1.0 (intel fortran)
+		OMPI_VERSION="3.1.0"
+		build_openmpi ${OPENMPI_NPROCS} | tee -a "openmpi-$OMPI_VERSION" &
+		# Build OpenMPI 4.1.2 (intel fortran)
+		OMPI_VERSION="4.1.2"
+		build_openmpi ${OPENMPI_NPROCS} | tee -a "openmpi-$OMPI_VERSION" &
+	fi
+}
+
+function set_process_number () {
+	expr $SETUP_NPROCS / 2 > /dev/null 2>&1 || SETUP_NPROCS=1 # Is $SETUP_NPROCS a number? If not, set it to 1.
+	MAX_NPROCS=$(grep -c  processor /proc/cpuinfo)
+	if (( $SETUP_NPROCS < 0 )); then # invalid number of processes (negative numbers, etc.)
+		echo "invalid number of processes: $SETUP_NPROCS"
+		echo "use default number of processes: 1"
+		SETUP_NPROCS=1
+	elif (( $SETUP_NPROCS > $MAX_NPROCS )); then # number of processes is larger than the number of processors
+		echo "number of processors you want to use: $SETUP_NPROCS"
+		echo "number of processors you can use: $MAX_NPROCS"
+		echo "use max number of processes: $MAX_NPROCS"
+		SETUP_NPROCS=$MAX_NPROCS
+	fi
+}
+
+
 # Unset all aliases
 \unalias -a
 
 # Setup umask
 umask 0022
-
-# Set the number of process
-expr $SETUP_NPROCS / 2 > /dev/null 2>&1 || SETUP_NPROCS=1 # Is $SETUP_NPROCS a number? If not, set it to 1.
-MAX_NPROCS=$(grep -c  processor /proc/cpuinfo)
-if (( $SETUP_NPROCS < 0 )); then # invalid number of processes (negative numbers, etc.)
-  echo "invalid number of processes: $SETUP_NPROCS"
-  echo "use default number of processes: 1"
-  SETUP_NPROCS=1
-elif (( $SETUP_NPROCS > $MAX_NPROCS )); then # number of processes is larger than the number of processors
-  echo "number of processors you want to use: $SETUP_NPROCS"
-  echo "number of processors you can use: $MAX_NPROCS"
-  echo "use max number of processes: $MAX_NPROCS"
-  SETUP_NPROCS=$MAX_NPROCS
-fi
-
-# Set this script's path
-# shellcheck disable=SC2046
-SCRIPT_PATH=$(cd $(dirname "$0") && pwd)
 
 # If intel fortran doesn't exist, Exit with error
 if ! type ifort > /dev/null; then
@@ -67,17 +87,27 @@ if ! type ifort > /dev/null; then
 	echo "You can also install intel fortran by running the following command(sudo authority and internet access are required): "
 	echo "> sudo sh ${SCRIPT_PATH}/intel-fortran.sh"
 	exit 1
-else
-	echo "intel fortran compiler (ifort) exists. We should not build intel fortran."
 fi
 
+# Check $MKLROOT is set or not
+if [ -z "$MKLROOT" ]; then
+	echo "MKLROOT is not set."
+	echo "Please set MKLROOT environment variable."
+	exit 1
+fi
+
+# Set the number of process
+set_process_number
+
+# Set this script's path
+SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 
 # Software path
 SOFTWARES="${HOME}/tmp/Software"
 MODULEFILES="${HOME}/modulefiles"
 CMAKE="${SOFTWARES}/cmake"
 OPENMPI="${SOFTWARES}/openmpi"
-DIRAC="${SOFTWARES}/dirac"
+DIRAC="${SOFTWARES}/DIRAC"
 MOLCAS="${SOFTWARES}/molcas"
 GIT="${SOFTWARES}/git"
 
@@ -96,32 +126,19 @@ mkdir -p "${MODULEFILES}/cmake"
 module purge
 module use --append "${MODULEFILES}"
 
-# # Setup git
-# setup_git && module load git/${GIT_VERSION} && git --version
+# Setup git
+setup_git && module load git/${GIT_VERSION} && git --version
 
-# # Setup CMake
-# setup_cmake && module load cmake/${CMAKE_VERSION} && cmake --version
+# Setup CMake
+setup_cmake && module load cmake/${CMAKE_VERSION} && cmake --version
 
 # Build OpenMPI (intel fortran)
-OPENMPI_NPROCS=$(( $SETUP_NPROCS / 2 ))
-if (( $OPENMPI_NPROCS < 1 )); then
-	# Serial build
-	echo "CMake will be built in serial mode."
-	# Build OpenMPI 3.1.0 (intel fortran)
-	setup_openmpi 3.1.0
-	# Build OpenMPI 4.1.2 (intel fortran)
-    setup_openmpi 4.1.2
-else
-	# Parallel build
-	echo "CMake will be built in parallel mode."
-	# Build OpenMPI 3.1.0 and 4.1.2 (intel fortran)
-	setup_openmpi 3.1.0 ${OPENMPI_NPROCS} | tee -a 3.1.0 & setup_openmpi 4.1.2 ${OPENMPI_NPROCS} | tee -a 4.1.2
-fi
-
-
+setup_openmpi
 
 # Build DIRAC
 
 # Build Molcas (interactive)
 
 wait
+
+echo "Build end normally!!"
