@@ -1,4 +1,4 @@
-# Softwares setup relativistic quantum chemistry
+# Setup relativistic quantum chemistry softwares (set-relqc-soft)
 
 相対論的量子化学計算プログラムのビルドを行うスクリプトです
 
@@ -35,7 +35,7 @@
 - git (version 2.37.1)
 - cmake (verson 3.23.2)
 - dirac (version 19.0, 21.1, 22.0)
-- molcas (version )
+- molcas (version 8.4)
 
 ## How to setup
 
