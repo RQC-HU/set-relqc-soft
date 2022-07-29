@@ -1,40 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+function run_dirac_testing (){
+	echo "START DIRAC-${DIRAC_VERSION} ${TEST_TYPE} test!!"
+    export DIRAC_MPI_COMMAND="mpirun -np $TEST_NPROCS"
+	set +e
+	make test
+	set -e
+	cp Testing/Temporary/LastTest.log "$DIRAC_BASEDIR/test_results/$TEST_TYPE"
+	if [ -f Testing/Temporary/LastTestsFailed.log ]; then
+	cp Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR/test_results/$TEST_TYPE"
+	fi
+}
+
 function build_dirac () {
 	echo "DIRAC NRPOCS : $DIRAC_NPROCS"
 	DIRAC_BASEDIR="$DIRAC/$DIRAC_VERSION"
 	cp -r "$SCRIPT_PATH/dirac/$DIRAC_VERSION" "$DIRAC"
 	cd "$DIRAC_BASEDIR"
+	# Unzip tarball
 	DIRAC_TAR="DIRAC-$DIRAC_VERSION-Source.tar.gz"
 	tar xf "$DIRAC_TAR"
 	cd "DIRAC-$DIRAC_VERSION-Source"
+	# Patch DIRAC integer(4) to integer(8) (max_mem)
 	PATCH_MEMCONTROL="$DIRAC_BASEDIR/diff_memcon"
 	patch -p0 --ignore-whitespace < "$PATCH_MEMCONTROL"
+	# Configure DIRAC
 	./setup --mpi --fc=mpif90 --cc=mpicc --cxx=mpicxx --mkl=parallel --int64 --extra-fc-flags="-xHost"  --extra-cc-flags="-xHost"  --extra-cxx-flags="-xHost" --prefix="$DIRAC_BASEDIR"
 	cd build
+	# Build DIRAC
 	make -j "$DIRAC_NPROCS" && make install
-	cp -f ../LICENSE "$DIRAC_BASEDIR"
-	mkdir -p "$DIRAC_BASEDIR/patches"
-	cp -f "$PATCH_MEMCONTROL" "$DIRAC_BASEDIR/patches"
+	# Serial test
+	TEST_TYPE="serial"
+	TEST_NPROCS=1
 	mkdir -p "$DIRAC_BASEDIR"/test_results/serial
+	run_dirac_testing
+	# Parallel test
+	TEST_TYPE="parallel"
+	TEST_NPROCS=${DIRAC_NPROCS}
     mkdir -p "$DIRAC_BASEDIR"/test_results/parallel
-	export DIRAC_MPI_COMMAND="mpirun -np 1"
-	set +e
-	make test
-	set -e
-	cp Testing/Temporary/LastTest.log "$DIRAC_BASEDIR"/test_results/serial
-	if [ -f Testing/Temporary/LastTestsFailed.log ]; then
-	cp Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR"/test_results/serial
-	fi
-	export DIRAC_MPI_COMMAND="mpirun -np ${DIRAC_NPROCS}"
-	set +e
-	make test
-	set -e
-	cp Testing/Temporary/LastTest.log "$DIRAC_BASEDIR"/test_results/parallel
-	if [ -f Testing/Temporary/LastTestsFailed.log ]; then
-	cp Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR"/test_results/parallel
-	fi
+	run_dirac_testing
 	cd "$SCRIPT_PATH"
 }
 
