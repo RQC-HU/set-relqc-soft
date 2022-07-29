@@ -1,12 +1,94 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+function build_dirac () {
+	echo "DIRAC NRPOCS : $DIRAC_NPROCS"
+	DIRAC_BASEDIR="$DIRAC/$DIRAC_VERSION"
+	cp -r "$SCRIPT_PATH/dirac/$DIRAC_VERSION" "$DIRAC"
+	cd "$DIRAC_BASEDIR"
+	DIRAC_TAR="DIRAC-$DIRAC_VERSION-Source.tar.gz"
+	tar xf "$DIRAC_TAR"
+	cd "DIRAC-$DIRAC_VERSION-Source"
+	PATCH_MEMCONTROL="$DIRAC_BASEDIR/diff_memcon"
+	patch -p0 --ignore-whitespace < "$PATCH_MEMCONTROL"
+	./setup --mpi --fc=mpif90 --cc=mpicc --cxx=mpicxx --mkl=parallel --int64 --extra-fc-flags="-xHost"  --extra-cc-flags="-xHost"  --extra-cxx-flags="-xHost" --prefix="$DIRAC_BASEDIR"
+	cd build
+	make -j "$DIRAC_NPROCS" && make install
+	cp -f ../LICENSE "$DIRAC_BASEDIR"
+	mkdir -p "$DIRAC_BASEDIR/patches"
+	cp -f "$PATCH_MEMCONTROL" "$DIRAC_BASEDIR/patches"
+	mkdir -p "$DIRAC_BASEDIR"/test_results/serial
+    mkdir -p "$DIRAC_BASEDIR"/test_results/parallel
+	export DIRAC_MPI_COMMAND="mpirun -np 1"
+	set +e
+	make test
+	set -e
+	cp Testing/Temporary/LastTest.log "$DIRAC_BASEDIR"/test_results/serial
+	if [ -f Testing/Temporary/LastTestsFailed.log ]; then
+	cp Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR"/test_results/serial
+	fi
+	export DIRAC_MPI_COMMAND="mpirun -np ${DIRAC_NPROCS}"
+	set +e
+	make test
+	set -e
+	cp Testing/Temporary/LastTest.log "$DIRAC_BASEDIR"/test_results/parallel
+	if [ -f Testing/Temporary/LastTestsFailed.log ]; then
+	cp Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR"/test_results/parallel
+	fi
+	cd "$SCRIPT_PATH"
+}
+
+function set_ompi_path () {
+	PATH="${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}-intel/bin:$PATH"
+	LIBRARY_PATH="${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}-intel/lib:$LIBRARY_PATH"
+	LD_LIBRARY_PATH="${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}-intel/lib:$LD_LIBRARY_PATH"
+}
+
+function setup_dirac () {
+	cd "$SCRIPT_PATH"
+	DIRAC_SCR="$HOME/dirac_scr"
+	mkdir -p "$DIRAC_SCR"
+	DIRAC_NPROCS=$(( $SETUP_NPROCS / 3 ))
+	OMPI_VERSION="3.1.0" # DIRAC 19.0 and 21.1 use this version of OpenMPI
+	set_ompi_path # set OpenMPI PATH
+	if (( $DIRAC_NPROCS <= 1 )); then # Serial build
+		echo "DIRAC will be built in serial mode."
+		DIRAC_NPROCS=$SETUP_NPROCS
+		# Build DIRAC 19.0
+		DIRAC_VERSION="19.0"
+		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
+		# Build DIRAC 21.1
+		DIRAC_VERSION="21.1"
+		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
+		# Build DIRAC 22.0
+		DIRAC_VERSION="22.0"
+		OMPI_VERSION="4.1.2"
+		set_ompi_path # set OpenMPI PATH
+		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
+	else # Parallel build
+		echo "DIRAC will be built in parallel mode."
+		# Build DIRAC 19.0
+		DIRAC_VERSION="19.0"
+		OMPI_VERSION="3.1.0"
+		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
+		# Build DIRAC 21.1
+		DIRAC_VERSION="21.1"
+		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
+		# Build DIRAC 22.0
+		DIRAC_VERSION="22.0"
+		OMPI_VERSION="4.1.2"
+		set_ompi_path # set OpenMPI PATH
+		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
+	fi
+}
+
 function setup_git () {
 	tar -xf "./git/git-${GIT_VERSION}.tar.gz" -C "${GIT}"
+	# ${GIT} にコピーされたtarballは使わないが、あとからどのtarballを使ってビルドしたか確認しやすくするためにコピーしておく
 	cp "./git/git-${GIT_VERSION}.tar.gz" "${GIT}"
 	cp "./git/${GIT_VERSION}" "${HOME}/modulefiles/git"
 	cd "${GIT}/git-${GIT_VERSION}"
-	make prefix="${GIT}" && make prefix="${GIT}" install
+	make prefix="${GIT}" -j "$SETUP_NPROCS"  && make prefix="${GIT}" install
 	echo "prepend-path    PATH            ${GIT}/bin" >> "${HOME}/modulefiles/git/${GIT_VERSION}"
     cd "${SCRIPT_PATH}"
 }
@@ -32,7 +114,7 @@ function build_openmpi() {
 	tar -xf "${OMPI_TARBALL}" -C "${OPENMPI}/${OMPI_VERSION}"
 	cd "${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}"
 	./configure CC=icc CXX=icpc FC=ifort FCFLAGS=-i8  CFLAGS=-m64  CXXFLAGS=-m64 --enable-mpi-cxx --enable-mpi-fortran=usempi --prefix="${OMPI_INSTALL_PREFIX}"
-	make && make install && make check
+	make -j "$OPENMPI_NPROCS" && make install && make check
 }
 
 function setup_openmpi() {
@@ -42,19 +124,19 @@ function setup_openmpi() {
 		echo "CMake will be built in serial mode."
 		# Build OpenMPI 3.1.0 (intel fortran)
 		OMPI_VERSION="3.1.0"
-		build_openmpi
+		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log"
 		# Build OpenMPI 4.1.2 (intel fortran)
 		OMPI_VERSION="4.1.2"
-		build_openmpi
+		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log"
 	else
 		# Parallel build
 		echo "CMake will be built in parallel mode."
 		# Build OpenMPI 3.1.0 (intel fortran)
 		OMPI_VERSION="3.1.0"
-		build_openmpi ${OPENMPI_NPROCS} | tee -a "openmpi-$OMPI_VERSION" &
+		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log" &
 		# Build OpenMPI 4.1.2 (intel fortran)
 		OMPI_VERSION="4.1.2"
-		build_openmpi ${OPENMPI_NPROCS} | tee -a "openmpi-$OMPI_VERSION" &
+		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log" &
 	fi
 }
 
@@ -127,18 +209,23 @@ module purge
 module use --append "${MODULEFILES}"
 
 # Setup git
-setup_git && module load git/${GIT_VERSION} && git --version
+setup_git
+module load git/${GIT_VERSION} && git --version
 
 # Setup CMake
-setup_cmake && module load cmake/${CMAKE_VERSION} && cmake --version
+setup_cmake
+module load cmake/${CMAKE_VERSION} && cmake --version
 
 # Build OpenMPI (intel fortran)
 setup_openmpi
 
-# Build DIRAC
-
-# Build Molcas (interactive)
-
 wait
 
-echo "Build end normally!!"
+# Build DIRAC
+setup_dirac
+
+wait
+# Build Molcas (interactive)
+
+
+echo "Build end"

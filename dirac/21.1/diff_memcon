@@ -1,0 +1,15 @@
+--- src/gp/memory_control.F90.orig      2019-08-08 13:42:54.000000000 +0900
++++ src/gp/memory_control.F90   2019-08-08 13:44:14.000000000 +0900
+@@ -110,10 +110,10 @@
+
+             subroutine allocator_setmax_i8(size)
+                integer(kind=8), intent(in) :: size
+-               integer(kind=4)             :: max_mem_i4
++               integer(kind=8)             :: max_mem_i8
+
+                if (size.le.0) then ! there are no limits so we use a large integer
+-                  max_mem = real(huge(max_mem_i4))*real(kreal)
++                  max_mem = real(huge(max_mem_i8))*real(kreal)
+                else
+                   max_mem = real(size)*real(kreal)
+                endif
