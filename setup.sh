@@ -73,6 +73,7 @@ function setup_dirac () {
 		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
 		# Build DIRAC 21.1
 		DIRAC_VERSION="21.1"
+		OMPI_VERSION="3.1.0"
 		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
 		# Build DIRAC 22.0
 		DIRAC_VERSION="22.0"
