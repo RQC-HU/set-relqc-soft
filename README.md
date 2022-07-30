@@ -5,6 +5,7 @@
 ## Pre-requirements
 
 ビルドにあたっては以下のコマンド、ツールがセットアップされていることを前提とします
+またセットアップ不要なプログラムがある場合、setup.shのsetup-プログラム名を削除するかコメントアウトしてください(Molcasのセットアップが不要な場合、configure-molcasもコメントアウトして下さい)
 
 - Environment Modules(必須ではないが推奨)
   - セットアップされていない場合はPATHをスクリプト内で自動的に解決しますが、DIRACなどの実行時に毎回OpenMPIのパスを設定しないといけなくなるのでmoduleコマンドを使える状態にすることを推奨します  
@@ -20,7 +21,7 @@
   ```
 
 - MOLCAS
-  - license.dat(ライセンスファイル)が./molcasディレクトリもしくは$HOME/.Molcasディレクトリ直下に配置されていること
+  - license.dat(ライセンスファイル)およびソースコードの圧縮ファイル(e.g. molcas84.tar.gz )をこのREADMEファイル直下の./molcasディレクトリにあることを前提とします
 - Intel(R) Fortran, C, C++ compiler, Math kernel library
   - [Intel(R) Fortran, C, C++ compiler](https://www.intel.com/content/www/us/en/developer/tools/oneapi/toolkits.html)
   - [Intel(R) Math kernel library](https://www.intel.com/content/www/us/en/develop/documentation/get-started-with-mkl-for-dpcpp/top.html)
