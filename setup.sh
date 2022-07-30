@@ -267,6 +267,7 @@ function setup_git () {
 		exit $ret
 	fi
 	echo "prepend-path    PATH            ${GIT}/bin" >> "${HOME}/modulefiles/git/${GIT_VERSION}"
+	module load git/${GIT_VERSION} && git --version
     cd "${SCRIPT_PATH}"
 }
 
@@ -279,6 +280,7 @@ function setup_cmake () {
 	cp "./cmake/${CMAKE_VERSION}" "${HOME}/modulefiles/cmake"
 	echo "prepend-path    PATH    ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/bin" >> "${HOME}/modulefiles/cmake/${CMAKE_VERSION}"
 	echo "prepend-path    MANPATH ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/man" >> "${HOME}/modulefiles/cmake/${CMAKE_VERSION}"
+    module load cmake/${CMAKE_VERSION} && cmake --version
 	cd "${SCRIPT_PATH}"
 }
 
@@ -389,19 +391,19 @@ module use --append "${MODULEFILES}"
 
 # Setup CMake
 setup_cmake
-module load cmake/${CMAKE_VERSION} && cmake --version
 
 # Setup git
 setup_git
-module load git/${GIT_VERSION} && git --version
 
 # Congigure Molcas (interactive)
 configure_molcas
 setup_molcas &
+
+# Setup utchem
 setup_utchem 2>&1 | tee "$SCRIPT_PATH/utchem-make.log" &
 wait
 
-# Build OpenMPI (intel fortran)
+# Build OpenMPI (intel fortran, You need to build this to build DIRAC)
 setup_openmpi
 
 # Build DIRAC
