@@ -43,14 +43,17 @@
   - [Intel(R) Fortran, C, C++ compiler](https://www.intel.com/content/www/us/en/developer/tools/oneapi/toolkits.html)
   - [Intel(R) Math kernel library](https://www.intel.com/content/www/us/en/develop/documentation/get-started-with-mkl-for-dpcpp/top.html)
 
+- UTChem
+  - このREADMEファイル直下の./utchemディレクトリにUTChemのソースコードの圧縮ファイルutchem.2008.8.12.tarがあることを前提とします
 
 ## ビルドされるソフトウェア
 
-- git (version 2.37.1)
-- cmake (verson 3.23.2)
-- dirac (version 19.0, 21.1, 22.0)
-- molcas (version 8.4)
-
+- [git](https://git-scm.com/) (version 2.37.1)
+- [cmake](https://cmake.org/) (verson 3.23.2)
+- [OpenMPI](https://www.open-mpi.org/) (version 3.1.0 4.1.2)
+- [dirac](http://diracprogram.org) (version 19.0, 21.1, 22.0)
+- [molcas](https://molcas.org)
+- [UTChem](http://ccl.scc.kyushu-u.ac.jp/~nakano/papers/lncs-2660-84.pdf)
 ## How to setup
 
 以下のコマンドを実行するとビルドが実行されます  
