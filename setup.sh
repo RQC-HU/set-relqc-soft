@@ -414,7 +414,7 @@ setup_git
 
 # Congigure Molcas (interactive)
 configure_molcas
-setup_molcas &
+setup_molcas
 
 # Setup utchem
 setup_utchem 2>&1 | tee "$SCRIPT_PATH/utchem-make.log" &
