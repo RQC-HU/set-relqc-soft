@@ -42,11 +42,7 @@
 - Intel(R) Fortran, C, C++ compiler, Math kernel library
   - [Intel(R) Fortran, C, C++ compiler](https://www.intel.com/content/www/us/en/developer/tools/oneapi/toolkits.html)
   - [Intel(R) Math kernel library](https://www.intel.com/content/www/us/en/develop/documentation/get-started-with-mkl-for-dpcpp/top.html)
-  - 上記2つはsudo権限及びインターネットへの接続が可能なら以下のコマンドでインストールできます
 
-  ```sh
-  sudo sh intel-fortran.sh
-  ```
 
 ## ビルドされるソフトウェア
 
@@ -64,5 +60,5 @@
 ```sh
  SETUP_NPROCS=使用コア数 sh setup.sh
  # (e.g.)
- SETUP_NPROCS=8 sh setup.sh
+ SETUP_NPROCS=9 sh setup.sh
 ```
