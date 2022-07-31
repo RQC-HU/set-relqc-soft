@@ -54,11 +54,12 @@
 ## How to setup
 
 以下のコマンドを実行するとビルドが実行されます  
+環境変数INSTALL_PATHを設定すると指定ディレクトリ下にインストールされます。指定しないとデフォルトの\$HOME/tmp/Softwareにインストールされます  
+環境変数SETUP_NPROCSはビルドに使用するプロセス数を指定します。値が不正であるか指定しない場合はデフォルトの1プロセスになります  
 (SETUP_NPROCSの値は6以上を推奨します)  
-(SETUP_NPROCSの値が不正であるか、設定されていない場合SETUP_NPROCSの値は1になります)
 
 ```sh
  SETUP_NPROCS=使用コア数 sh setup.sh
  # (e.g.)
- SETUP_NPROCS=9 sh setup.sh
+ INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 sh setup.sh
 ```
