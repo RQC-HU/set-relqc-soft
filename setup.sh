@@ -86,32 +86,12 @@ function configure_molcas () {
 function test_utchem () {
 	set +e
 	echo "Start testing UTChem..."
-	for TEST_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh" | sed "s/\/test.sh//g")
+	for TEST_SCRIPT_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh")
 	do
-		cd "${TEST_PATH}"
-		echo "Start Running test scripts under: ${TEST_PATH}"
-		WORK="scrach"
-		TITLE="test-results"
-		mkdir -p "${WORK}"
-		mkdir -p "${TITLE}"
-		for ii in *.ut
-		do
-			echo
-			echo "=================================================================="
-			echo "UTChem Parallel Testing... $TEST_PATH/$ii"
-			date
-			OUTPUT=${TITLE}/${ii}out
-			echo "$UTCHEM_BUILD_DIR/boot/utchem -w ${WORK} $ii >& $OUTPUT"
-
-			"$UTCHEM_BUILD_DIR"/boot/utchem -w "${WORK}" "$ii" 2>&1 | tee "$OUTPUT"
-
-			date
-			echo "=================================================================="
-			echo
-		done
+		echo "Start Running test scripts under: ${TEST_SCRIPT_PATH}"
+		sh "$TEST_SCRIPT_PATH" scratch test-results
 	done
 	set -e
-	cd "$SCRIPT_PATH"
 }
 
 function setup_utchem () {
@@ -154,14 +134,13 @@ function setup_utchem () {
 	#   (e.g. If you installed a python executable file at /home/users/username/python)
 	#   ./configure --python=/home/users/username/python
 	cd "${UTCHEM_BUILD_DIR}"
-	./configure --python=python2
+	./configure --python=python2 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
 
 	# Make utchem (${UTCHEM_BUILD_DIR}/boot/utchem is executable file)
-	make
+	make 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
 
 	# Run test script
-	test_utchem > utchem-test.log 2>&1
-
+	test_utchem 2>&1 | tee "$SCRIPT_PATH/utchem-test.log"
 	cd "$SCRIPT_PATH"
 }
 
@@ -417,7 +396,7 @@ configure_molcas
 setup_molcas
 
 # Setup utchem
-setup_utchem 2>&1 | tee "$SCRIPT_PATH/utchem-make.log" &
+setup_utchem
 wait
 
 # Build OpenMPI (intel fortran, You need to build this to build DIRAC)
