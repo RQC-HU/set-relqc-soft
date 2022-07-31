@@ -335,6 +335,21 @@ function set_process_number () {
 	fi
 }
 
+function set_install_path () {
+	# Check if the variable is set
+    if [ -z "$INSTALL_PATH" ]; then
+        echo "INSTALL_PATH is not set"
+        INSTALL_PATH="${HOME}/tmp/Software"
+		echo "INSTALL_PATH is set to: $INSTALL_PATH"
+    fi
+
+    # Check if the path exists
+    if [ -d "$INSTALL_PATH" ]; then
+        echo "$INSTALL_PATH is already exists"
+        echo "Please remove the directory and run the script again or set the another path that does not exist."
+        exit 1
+    fi
+}
 
 # Unset all aliases
 \unalias -a
@@ -361,18 +376,20 @@ fi
 # Set the number of process
 set_process_number
 
+# Set the path of installation directory
+set_install_path
+
 # Set this script's path
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 
 # Software path
-SOFTWARES="${HOME}/tmp/Software"
 MODULEFILES="${HOME}/modulefiles"
-CMAKE="${SOFTWARES}/cmake"
-OPENMPI="${SOFTWARES}/openmpi"
-DIRAC="${SOFTWARES}/DIRAC"
-MOLCAS="${SOFTWARES}/molcas"
-UTCHEM="${SOFTWARES}/utchem"
-GIT="${SOFTWARES}/git"
+CMAKE="${INSTALL_PATH}/cmake"
+OPENMPI="${INSTALL_PATH}/openmpi"
+DIRAC="${INSTALL_PATH}/DIRAC"
+MOLCAS="${INSTALL_PATH}/molcas"
+UTCHEM="${INSTALL_PATH}/utchem"
+GIT="${INSTALL_PATH}/git"
 
 # VERSIONS
 GIT_VERSION="2.37.1"
