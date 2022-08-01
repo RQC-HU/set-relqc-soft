@@ -88,6 +88,13 @@ function test_utchem () {
 	echo "Start testing UTChem..."
 	for TEST_SCRIPT_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh")
 	do
+		DFT_GEOPT="$(echo $TEST_SCRIPT_PATH | grep dft.geopt)"
+		if [ "$DFT_GEOPT" ]; then
+			echo "Skipping test script '$TEST_SCRIPT_PATH'"
+			continue
+		fi
+		TEST_SCRIPT_DIR="$(dirname "$TEST_SCRIPT_PATH")"
+		cd "$TEST_SCRIPT_DIR"
 		echo "Start Running test scripts under: ${TEST_SCRIPT_PATH}"
 		sh "$TEST_SCRIPT_PATH" scratch test-results
 	done
