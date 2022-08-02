@@ -259,12 +259,12 @@ function setup_git () {
 }
 
 function setup_python () {
-	PYENVROOT="$HOME/testpyenv/.pyenv"
+	PYENVROOT="$INSTALL_PATH/.pyenv"
 	git clone https://github.com/pyenv/pyenv.git "$PYENVROOT"
-	echo 'export PYENV_ROOT="$HOME/testpyenv/.pyenv"' >> "$HOME/.bashrc"
-	echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> "$HOME/.bashrc"
+	echo "export PYENV_ROOT=\"$PYENVROOT/.pyenv\"" >> "$HOME/.bashrc"
+	echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >> "$HOME/.bashrc"
 	echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
-	export PYENV_ROOT="$HOME/testpyenv/.pyenv"
+	export PYENV_ROOT="$INSTALL_PATH/.pyenv"
 	command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
 	eval "$(pyenv init -)"
 	pyenv install "$PYTHON2_VERSION"
@@ -339,7 +339,7 @@ function set_install_path () {
 	# Check if the variable is set
     if [ -z "$INSTALL_PATH" ]; then
         echo "INSTALL_PATH is not set"
-        INSTALL_PATH="${HOME}/tmp/Software"
+        INSTALL_PATH="${HOME}/Software"
 		echo "INSTALL_PATH is set to: $INSTALL_PATH"
     fi
 
