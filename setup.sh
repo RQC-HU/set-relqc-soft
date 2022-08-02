@@ -141,7 +141,7 @@ function setup_utchem () {
 	#   (e.g. If you installed a python executable file at /home/users/username/python)
 	#   ./configure --python=/home/users/username/python
 	cd "${UTCHEM_BUILD_DIR}"
-	./configure --python=python2 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
+	./configure --python=python 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
 
 	# Make utchem (${UTCHEM_BUILD_DIR}/boot/utchem is executable file)
 	make 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
@@ -201,10 +201,11 @@ function set_ompi_path () {
 
 function setup_dirac () {
 	cd "$SCRIPT_PATH"
+	pyenv global "$PYTHON3_VERSION"
 	DIRAC_SCR="$HOME/dirac_scr"
 	mkdir -p "$DIRAC_SCR"
 	DIRAC_NPROCS=$(( $SETUP_NPROCS / 3 ))
-	OMPI_VERSION="3.1.0" # DIRAC 19.0 and 21.1 use this version of OpenMPI
+	OMPI_VERSION="$OPENMPI3_VERSION" # DIRAC 19.0 and 21.1 use this version of OpenMPI
 	set_ompi_path # set OpenMPI PATH
 	if (( $DIRAC_NPROCS <= 1 )); then # Serial build
 		echo "DIRAC will be built in serial mode."
@@ -217,7 +218,7 @@ function setup_dirac () {
 		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
 		# Build DIRAC 22.0
 		DIRAC_VERSION="22.0"
-		OMPI_VERSION="4.1.2"
+		OMPI_VERSION="$OPENMPI4_VERSION"
 		set_ompi_path # set OpenMPI PATH
 		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
 	else # Parallel build
@@ -232,7 +233,7 @@ function setup_dirac () {
 		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
 		# Build DIRAC 22.0
 		DIRAC_VERSION="22.0"
-		OMPI_VERSION="4.1.2"
+		OMPI_VERSION="$OPENMPI4_VERSION"
 		set_ompi_path # set OpenMPI PATH
 		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
 	fi
@@ -257,6 +258,19 @@ function setup_git () {
     cd "${SCRIPT_PATH}"
 }
 
+function setup_python () {
+	PYENVROOT="$HOME/testpyenv/.pyenv"
+	git clone https://github.com/pyenv/pyenv.git "$PYENVROOT"
+	echo 'export PYENV_ROOT="$HOME/testpyenv/.pyenv"' >> "$HOME/.bashrc"
+	echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> "$HOME/.bashrc"
+	echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
+	export PYENV_ROOT="$HOME/testpyenv/.pyenv"
+	command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
+	eval "$(pyenv init -)"
+	pyenv install "$PYTHON2_VERSION"
+	pyenv install "$PYTHON3_VERSION"
+	pyenv global "$PYTHON2_VERSION"
+}
 
 function setup_cmake () {
 	# unzip cmake prebuild tarball
@@ -288,19 +302,19 @@ function setup_openmpi() {
 		# Serial build
 		echo "CMake will be built in serial mode."
 		# Build OpenMPI 3.1.0 (intel fortran)
-		OMPI_VERSION="3.1.0"
+		OMPI_VERSION="$OPENMPI3_VERSION"
 		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log"
 		# Build OpenMPI 4.1.2 (intel fortran)
-		OMPI_VERSION="4.1.2"
+		OMPI_VERSION="$OPENMPI4_VERSION"
 		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log"
 	else
 		# Parallel build
 		echo "CMake will be built in parallel mode."
 		# Build OpenMPI 3.1.0 (intel fortran)
-		OMPI_VERSION="3.1.0"
+		OMPI_VERSION="$OPENMPI3_VERSION"
 		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log" &
 		# Build OpenMPI 4.1.2 (intel fortran)
-		OMPI_VERSION="4.1.2"
+		OMPI_VERSION="$OPENMPI4_VERSION"
 		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log" &
 	fi
 	wait
@@ -380,6 +394,10 @@ GIT="${INSTALL_PATH}/git"
 # VERSIONS
 GIT_VERSION="2.37.1"
 CMAKE_VERSION="3.23.2"
+OPENMPI3_VERSION="3.1.0"
+OPENMPI4_VERSION="4.1.2"
+PYTHON2_VERSION="2.7.18"
+PYTHON3_VERSION="3.9.12"
 
 # Create directories for Softwares
 mkdir -p "${CMAKE}" "${OPENMPI}" "${DIRAC}" "${MOLCAS}" "${GIT}" "${UTCHEM}"
@@ -398,9 +416,12 @@ setup_cmake
 # Setup git
 setup_git
 
+# Setup python using pyenv
+setup_python
 # Congigure Molcas (interactive)
 configure_molcas
 setup_molcas
+
 
 # Setup utchem
 setup_utchem
