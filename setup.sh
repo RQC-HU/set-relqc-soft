@@ -63,6 +63,8 @@ function configure_molcas () {
 function test_utchem () {
 	set +e
 	echo "Start testing UTChem..."
+	FAILED_TESTS=()
+	TESTS_COUNT=0
 	for TEST_SCRIPT_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh")
 	do
 		DFT_GEOPT="$(echo $TEST_SCRIPT_PATH | grep dft.geopt)"
@@ -70,11 +72,84 @@ function test_utchem () {
 			echo "Skipping test script '$TEST_SCRIPT_PATH'"
 			continue
 		fi
-		TEST_SCRIPT_DIR="$(dirname "$TEST_SCRIPT_PATH")"
-		cd "$TEST_SCRIPT_DIR"
-		echo "Start Running test scripts under: ${TEST_SCRIPT_PATH}"
-		sh "$TEST_SCRIPT_PATH" scratch test-results
+		TCE="$(echo $TEST_SCRIPT_PATH | grep tce.energy.h2o.sto3g)"
+		if [ "$TCE" ]; then
+			TEST_SCRIPT_DIR="$(dirname "$TEST_SCRIPT_PATH")"
+			cd "$TEST_SCRIPT_DIR"
+			echo "Start Running a test script under: ${TEST_SCRIPT_DIR}"
+			sh "$TEST_SCRIPT_PATH" scratch test-results
+			echo "Finished Running a test script under: ${TEST_SCRIPT_DIR}"
+			outputs=$(find "$TEST_SCRIPT_DIR" -name "*.utout" -printf "%f\n")
+
+			#<< "#COMMENT"
+			for output in $outputs
+			do
+				TESTS_COUNT=$(($TESTS_COUNT+1))
+				references=($(grep "Total Energy" "$TEST_SCRIPT_DIR/$output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF " "}'))
+				results=($(grep "Total Energy" "$TEST_SCRIPT_DIR/test-results/$output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF "\n"}'))
+
+				echo "------------------------------------------------------------------"
+				echo "Start checking test results for $TEST_SCRIPT_DIR/$output and $TEST_SCRIPT_DIR/test-results/$output"
+				echo "references: " "${references[@]}"
+				echo "results: " "${results[@]}"
+				echo "------------------------------------------------------------------"
+				if [ ${#references[@]} -ne ${#results[@]} ] ; then
+					FAILED_TESTS+=("$output")
+					echo "ERROR: references and results are not same length"
+					echo "So we don't evaluate the results of Total Energy"
+					echo "references:" "${references[@]}"
+					echo "results:" "${results[@]}"
+					continue
+				fi
+
+				for ((i = 1; i < ${#references[@]}; i+=2));
+				do
+					diff=$( echo "${references[$i]} ${results[$i]}" | awk '{printf $1 - $2}' )
+					absdiff=${diff#-}
+					threshold=1e-7
+					pass_test=$( echo "${absdiff} ${threshold}" | awk '{if($1 <= $2) {print "YES"} else {print "NO"}}' )
+					all_test_passed="YES"
+					echo "Checking abs(reference - result): ${absdiff} <= ${threshold} ? ... ${pass_test}"
+
+					if [ $pass_test = "YES" ] ; then
+						echo "TEST PASSED"
+					else
+						all_test_passed="NO"
+						echo "ERROR: TEST FAILED"
+						echo "threshold = $threshold"
+						echo "${references[$((i-1))]} is different between references and results"
+						echo "references[$i] = ${references[$i]}"
+						echo "results[$i] = ${results[$i]}"
+						echo "diff = $diff"
+						echo "abs(diff) = ${diff#-}"
+					fi
+				done
+				if [ $all_test_passed = "YES" ] ; then
+					echo "ALL TESTS PASSED for $TEST_SCRIPT_DIR/test-results/$output"
+				else
+					echo "ERROR: SOME TESTS FAILED"
+				fi
+			done
+			#COMMENT
+			echo "Finished testing a script under: ${TEST_SCRIPT_DIR}"
+		fi
 	done
+	echo "Finished testing UTChem"
+	echo "------------------------------------------------------------------"
+	echo "Summary of UTChem tests"
+	echo "ALL TESTS COUNT: ${TESTS_COUNT}"
+	echo "FAILED TESTS COUNT: ${#FAILED_TESTS[@]}"
+	if [ ${#FAILED_TESTS[@]} -ne 0 ]; then
+		echo "ERROR: SOME TESTS FAILED"
+		echo "FAILED TESTS:"
+		for failed_test in "${FAILED_TESTS[@]}"
+		do
+			echo "  $failed_test"
+		done
+	else
+		echo "ALL TESTS PASSED!"
+	fi
+	echo "------------------------------------------------------------------"
 	set -e
 }
 
