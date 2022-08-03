@@ -165,7 +165,11 @@ function setup_utchem () {
 	cp -r "${UTCHEM_PATCH}" "${UTCHEM}"
 	PATCHDIR=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
 	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
-	UTCHEM_BUILD_DIR="${UTCHEM}/utchem"
+
+	# Unzip utchem.tar file
+	cd "${UTCHEM}"
+	tar xf "${UTCHEM_TARBALL}"
+    UTCHEM_BUILD_DIR=$(find "$UTCHEM" -mindepth 1 -type d -name "utchem*")
 	GA4="${UTCHEM_BUILD_DIR}/ga4-0-2"
 
 	# File location of Patch files and files to patch
@@ -175,10 +179,6 @@ function setup_utchem () {
 	GLOBALPATCH="${PATCHDIR}/global_patch"
 	GACONFIGFILE="${GA4}/config/makefile.h"
 	GACONFIGPATCH="${PATCHDIR}/makefile.h.patch"
-
-	# Unzip utchem.tar file
-	cd "${UTCHEM}"
-	tar xf "${UTCHEM_TARBALL}"
 
 	# Patch files (To run "make" command normally)
 	patch "${GAMAKEFILE}" "${GAPATCH}"
