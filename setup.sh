@@ -63,8 +63,8 @@ function configure_molcas () {
 function test_utchem () {
 	set +e
 	echo "Start testing UTChem..."
-	FAILED_TESTS=()
-	TESTS_COUNT=0
+	failed_test_files=()
+	tests_count=0
 	for TEST_SCRIPT_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh")
 	do
 		DFT_GEOPT="$(echo $TEST_SCRIPT_PATH | grep dft.geopt)"
@@ -84,17 +84,19 @@ function test_utchem () {
 			#<< "#COMMENT"
 			for output in $outputs
 			do
-				TESTS_COUNT=$(($TESTS_COUNT+1))
-				references=($(grep "Total Energy" "$TEST_SCRIPT_DIR/$output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF " "}'))
-				results=($(grep "Total Energy" "$TEST_SCRIPT_DIR/test-results/$output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF "\n"}'))
+				tests_count=$(($tests_count+1))
+				reference_output="$TEST_SCRIPT_DIR/$output"
+				result_output="$TEST_SCRIPT_DIR/test-results/$output"
+				references=($(grep "Total Energy" "$reference_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF " "}'))
+				results=($(grep "Total Energy" "$result_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF "\n"}'))
 
 				echo "------------------------------------------------------------------"
-				echo "Start checking test results for $TEST_SCRIPT_DIR/$output and $TEST_SCRIPT_DIR/test-results/$output"
+				echo "Start checking test results for $reference_output and $result_output"
 				echo "references: " "${references[@]}"
 				echo "results: " "${results[@]}"
 				echo "------------------------------------------------------------------"
 				if [ ${#references[@]} -ne ${#results[@]} ] ; then
-					FAILED_TESTS+=("$output")
+					failed_test_files+=("$result_output")
 					echo "ERROR: references and results are not same length"
 					echo "So we don't evaluate the results of Total Energy"
 					echo "references:" "${references[@]}"
@@ -107,11 +109,11 @@ function test_utchem () {
 					diff=$( echo "${references[$i]} ${results[$i]}" | awk '{printf $1 - $2}' )
 					absdiff=${diff#-}
 					threshold=1e-7
-					pass_test=$( echo "${absdiff} ${threshold}" | awk '{if($1 <= $2) {print "YES"} else {print "NO"}}' )
+					is_pass_test=$( echo "${absdiff} ${threshold}" | awk '{if($1 <= $2) {print "YES"} else {print "NO"}}' )
 					all_test_passed="YES"
-					echo "Checking abs(reference - result): ${absdiff} <= ${threshold} ? ... ${pass_test}"
+					echo "Checking abs(reference - result): ${absdiff} <= ${threshold} ? ... ${is_pass_test}"
 
-					if [ $pass_test = "YES" ] ; then
+					if [ "$is_pass_test" = "YES" ] ; then
 						echo "TEST PASSED"
 					else
 						all_test_passed="NO"
@@ -125,7 +127,7 @@ function test_utchem () {
 					fi
 				done
 				if [ $all_test_passed = "YES" ] ; then
-					echo "ALL TESTS PASSED for $TEST_SCRIPT_DIR/test-results/$output"
+					echo "ALL TESTS PASSED for $result_output"
 				else
 					echo "ERROR: SOME TESTS FAILED"
 				fi
@@ -137,12 +139,12 @@ function test_utchem () {
 	echo "Finished testing UTChem"
 	echo "------------------------------------------------------------------"
 	echo "Summary of UTChem tests"
-	echo "ALL TESTS COUNT: ${TESTS_COUNT}"
-	echo "FAILED TESTS COUNT: ${#FAILED_TESTS[@]}"
-	if [ ${#FAILED_TESTS[@]} -ne 0 ]; then
+	echo "ALL TESTS: ${tests_count}"
+	echo "FAILED TESTS: ${#failed_test_files[@]}"
+	if [ ${#failed_test_files[@]} -ne 0 ]; then
 		echo "ERROR: SOME TESTS FAILED"
 		echo "FAILED TESTS:"
-		for failed_test in "${FAILED_TESTS[@]}"
+		for failed_test in "${failed_test_files[@]}"
 		do
 			echo "  $failed_test"
 		done
@@ -154,6 +156,9 @@ function test_utchem () {
 }
 
 function setup_utchem () {
+	OMPI_VERSION="$OPENMPI4_VERSION"
+	set_ompi_path # set OpenMPI PATH
+
 	UTCHEM_PATCH=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
 	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
 	cp "${UTCHEM_TARBALL}" "${UTCHEM}"
@@ -185,8 +190,8 @@ function setup_utchem () {
 	#       change linux_ifort_x86_64_i8.config.sh.in to linux_gcc4_x86_64_i8_config.sh.in and
 	#       change linux_ifort_x86_64_i8.makeconfig.in to linux_gcc4_x86_64_i8_makeconfig.in.
 	cd "${UTCHEM_BUILD_DIR}/config"
-	cp linux_ifort_x86_64_i8.config.sh.in linux_ifc.config.sh.in
-	cp linux_ifort_x86_64_i8.makeconfig.in linux_ifc.makeconfig.in
+	cp linux_mpi_ifort_x86_64_i8.config.sh.in linux_ifc.config.sh.in
+	cp linux_mpi_ifort_x86_64_i8.makeconfig.in linux_ifc.makeconfig.in
 
 
 	# Configure utchem
@@ -454,8 +459,11 @@ function check_files_and_dirs () {
 		mkdir -p "${MOLCAS}"
 		check_molcas_files
 	fi
+	if [ "$utchem_install" == "YES" ] || [ "$dirac_install" == "YES" ]; then
+		mkdir -p "${OPENMPI}"
+	fi
 	if [ "$dirac_install" == "YES" ]; then
-		mkdir -p "${DIRAC}" "${OPENMPI}"
+		mkdir -p "${DIRAC}"
 		mkdir -p "${MODULEFILES}/dirac"
 	fi
 	if [ "$utchem_install" == "YES" ]; then
