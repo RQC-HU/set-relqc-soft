@@ -2,7 +2,7 @@
 set -euo pipefail
 
 function setup_molcas () {
-	cd "$MOLCAS/$TARBALL_FILENAME_NO_EXTENSION"
+	cd "$MOLCAS/$MOLCAS_TARBALL_NO_EXTENSION"
 
 	# Build MOLCAS
 	make 2>&1 | tee "$SCRIPT_PATH/molcas-make.log"
@@ -17,9 +17,9 @@ function setup_molcas () {
 
 function check_one_file_only () {
     if [ "$( echo "$FILE_NAMES" | wc -l )" -gt 1 ]; then
-        echo "ERROR: Detected multiple MOLCAS ${FILE_TYPE}s in $PWD/molcas directory."
+        echo "ERROR: Detected multiple $PROGRAM_NAME ${FILE_TYPE}s in $SCRIPT_PATH/$PROGRAM_NAME directory."
         echo "       Searched for $FILE_TYPE files named '$FIND_CONDITION'."
-        echo "       Please remove all but one license."
+        echo "       Please remove all but one file."
         echo "Detected ${FILE_TYPE}s:"
         echo "$FILE_NAMES"
         echo "Exiting."
@@ -29,49 +29,26 @@ function check_one_file_only () {
 
 function configure_molcas () {
 	echo "Starting Molcas interactive setup"
-	LICENSE_FILENAME=$(find "$PWD/molcas" -maxdepth 1 -name "license*")
-	TARBALL_FILENAME=$(find "$PWD/molcas" -maxdepth 1 -name "molcas*tar*")
-
-	# Check if the license file and tarball exist
-	if [ -z "${LICENSE_FILENAME}" ]; then
-		echo "ERROR: MOLCAS License file not found."
-		echo "Please check the file name (Searched for 'license' in the '$SCRIPT_PATH/molcas' directory). Exiting."
-		exit 1
-	fi
-	if [ -z "${TARBALL_FILENAME}" ]; then
-		echo "ERROR: MOLCAS Tarball file not found."
-		echo "Please check the file name (Searched for 'molcas*tar*' in the '$SCRIPT_PATH/molcas' directory). Exiting."
-		exit 1
-	fi
-
-    # Check if the number of license file and tarball is one in the directory, respectively.
-	FILE_NAMES="$LICENSE_FILENAME"
-	FILE_TYPE="license"
-	FIND_CONDITION="license*"
-	check_one_file_only
-
-	FILE_NAMES="$TARBALL_FILENAME"
-	FILE_TYPE="tarball"
-	FIND_CONDITION="molcas*tar*"
-	check_one_file_only
 
 	# Find the directory for the MOLCAS installation
 	# (e.g. molcas84.tar.gz -> molcas84)
-	TARBALL_FILENAME_NO_EXTENSION="$(echo "$TARBALL_FILENAME" | awk -F'[/]' '{print $NF}' | sed 's/\.tar.*//')"
+	MOLCAS_LICENSE=$(find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "license*")
+	MOLCAS_TARBALL=$(find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "molcas*tar*")
+	MOLCAS_TARBALL_NO_EXTENSION="$(echo "$MOLCAS_TARBALL" | awk -F'[/]' '{print $NF}' | sed 's/\.tar.*//')"
 
 	# Now we can configure the Molcas package
 	echo "Start configuring Molcas package"
-	cp "$LICENSE_FILENAME" "$MOLCAS"
-	cp "$TARBALL_FILENAME" "$MOLCAS"
+	cp "$MOLCAS_LICENSE" "$MOLCAS"
+	cp "$MOLCAS_TARBALL" "$MOLCAS"
 	cd "$MOLCAS"
-	tar -xf "$TARBALL_FILENAME"
+	tar -xf "$MOLCAS_TARBALL"
 	# Check if the directory exists
-	if [ ! -d "$TARBALL_FILENAME_NO_EXTENSION" ]; then
+	if [ ! -d "$MOLCAS_TARBALL_NO_EXTENSION" ]; then
 		echo "ERROR: MOLCAS installation directory not found."
-		echo "Please check the file name (Searched for '$TARBALL_FILENAME_NO_EXTENSION' in the '$MOLCAS' directory). Exiting."
+		echo "Please check the file name (Searched for '$MOLCAS_TARBALL_NO_EXTENSION' in the '$MOLCAS' directory). Exiting."
 		exit 1
 	fi
-	cd "$MOLCAS/$TARBALL_FILENAME_NO_EXTENSION"
+	cd "$MOLCAS/$MOLCAS_TARBALL_NO_EXTENSION"
 	# Configure the Molcas package
 	./setup
 	ret=$?
@@ -102,11 +79,13 @@ function test_utchem () {
 }
 
 function setup_utchem () {
-	cp "${SCRIPT_PATH}/utchem/utchem.2008.8.12.tar" "${UTCHEM}"
-	cp -r "${SCRIPT_PATH}/utchem/patches" "${UTCHEM}"
-	PATCHDIR="${UTCHEM}/patches"
+	UTCHEM_PATCH=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
+	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
+	cp "${UTCHEM_TARBALL}" "${UTCHEM}"
+	cp -r "${UTCHEM_PATCH}" "${UTCHEM}"
+	PATCHDIR=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
+	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
 	UTCHEM_BUILD_DIR="${UTCHEM}/utchem"
-	UTCHEM_TARBALL="${UTCHEM}/utchem.2008.8.12.tar"
 	GA4="${UTCHEM_BUILD_DIR}/ga4-0-2"
 
 	# File location of Patch files and files to patch
@@ -265,11 +244,15 @@ function setup_python () {
 	echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >> "$HOME/.bashrc"
 	echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
 	export PYENV_ROOT="$INSTALL_PATH/.pyenv"
-	command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
+	export PATH="$PYENV_ROOT/bin:$PATH"
 	eval "$(pyenv init -)"
+	echo "$PYENV_ROOT , $INSTALL_PATH " >> $SCRIPT_PATH/python-version.log 2>&1
+	echo "$PATH" | tr ':' '\n' >> $SCRIPT_PATH/python-version.log 2>&1
 	pyenv install "$PYTHON2_VERSION"
 	pyenv install "$PYTHON3_VERSION"
 	pyenv global "$PYTHON2_VERSION"
+	python -V >> $SCRIPT_PATH/python-version.log 2>&1
+
 }
 
 function setup_cmake () {
@@ -333,6 +316,90 @@ function set_process_number () {
 		echo "use max number of processes: $MAX_NPROCS"
 		SETUP_NPROCS=$MAX_NPROCS
 	fi
+}
+
+function check_molcas_files () {
+
+	MOLCAS_LICENSE=$(find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "license*")
+	MOLCAS_TARBALL=$(find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "molcas*tar*")
+
+	# Check if the license file and tarball exist
+	if [ -z "${MOLCAS_LICENSE}" ]; then
+		echo "ERROR: MOLCAS License file not found."
+		echo "Please check the file name (Searched for 'license' in the '$SCRIPT_PATH/molcas' directory). Exiting."
+		exit 1
+	fi
+	if [ -z "${MOLCAS_TARBALL}" ]; then
+		echo "ERROR: MOLCAS Tarball file not found."
+		echo "Please check the file name (Searched for 'molcas*tar*' in the '$SCRIPT_PATH/molcas' directory). Exiting."
+		exit 1
+	fi
+
+    # Check if the number of license file and tarball is one in the directory, respectively.
+	FILE_NAMES="$MOLCAS_LICENSE"
+	FILE_TYPE="license"
+	FIND_CONDITION="license*"
+	PROGRAM_NAME="molcas"
+	check_one_file_only
+
+	FILE_NAMES="$MOLCAS_TARBALL"
+	FILE_TYPE="tarball"
+	FIND_CONDITION="molcas*tar*"
+	PROGRAM_NAME="molcas"
+	check_one_file_only
+}
+
+function check_utchem_files () {
+
+	UTCHEM_PATCH=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
+	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
+
+	# Check if the license file and tarball exist
+	if [ ! -d "${UTCHEM_PATCH}" ]; then
+		echo "ERROR: UTCHEM patches directory not found."
+		echo "Please check the file name (Searched for 'patches' in the '$SCRIPT_PATH/utchem' directory). Exiting."
+		exit 1
+	fi
+	if [ -z "${UTCHEM_TARBALL}" ]; then
+		echo "ERROR: UTCHEM Tarball file not found."
+		echo "Please check the file name (Searched for 'utchem*tar*' in the '$SCRIPT_PATH/utchem' directory). Exiting."
+		exit 1
+	fi
+
+	# Check if the number of tarball is one in the directory.
+	FILE_NAMES="$UTCHEM_TARBALL"
+	FILE_TYPE="tarball"
+	FIND_CONDITION="utchem*tar*"
+	PROGRAM_NAME="utchem"
+	check_one_file_only
+}
+
+function check_files_and_dirs () {
+	if [ "$molcas_install" == "YES" ]; then
+		mkdir -p "${MOLCAS}"
+		check_molcas_files
+	fi
+	if [ "$dirac_install" == "YES" ]; then
+		mkdir -p "${DIRAC}" "${OPENMPI}"
+		mkdir -p "${MODULEFILES}/dirac"
+	fi
+	if [ "$utchem_install" == "YES" ]; then
+		mkdir -p "${UTCHEM}"
+		check_utchem_files
+	fi
+}
+
+function whether_install_or_not() {
+    ANS="YES"
+    while true; do
+    read -p "Do you want to install $PROGRAM_NAME? (Y/n)" yn
+    case $yn in
+        [Yy]* ) ANS="YES"; break;;
+        [Nn]* ) ANS="NO"; break;;
+        * ) ANS="YES"; break;;
+    esac
+    done
+    echo $ANS
 }
 
 function set_install_path () {
@@ -399,8 +466,16 @@ OPENMPI4_VERSION="4.1.2"
 PYTHON2_VERSION="2.7.18"
 PYTHON3_VERSION="3.9.12"
 
-# Create directories for Softwares
-mkdir -p "${CMAKE}" "${OPENMPI}" "${DIRAC}" "${MOLCAS}" "${GIT}" "${UTCHEM}"
+# Check whether the user wants to install or not
+PROGRAM_NAME="MOLCAS"
+molcas_install=$(whether_install_or_not)
+PROGRAM_NAME="DIRAC"
+dirac_install=$(whether_install_or_not)
+PROGRAM_NAME="UTCHEM"
+utchem_install=$(whether_install_or_not)
+
+# Check files and directories
+check_files_and_dirs
 
 # Create directories for Environment modules
 mkdir -p "${MODULEFILES}/git"
@@ -411,27 +486,40 @@ module purge
 module use --append "${MODULEFILES}"
 
 # Setup CMake
+mkdir -p "${CMAKE}"
 setup_cmake
 
 # Setup git
+mkdir -p  "${GIT}"
 setup_git
 
 # Setup python using pyenv
 setup_python
 # Congigure Molcas (interactive)
-configure_molcas
-setup_molcas
+if [ "$molcas_install" == "YES" ]; then
+	configure_molcas
+	setup_molcas
+else
+	echo "Skip Molcas installation."
+fi
 
 
 # Setup utchem
-setup_utchem
-wait
+if [ "$utchem_install" == "YES" ]; then
+	setup_utchem
+else
+	echo "Skip utchem installation."
+fi
 
-# Build OpenMPI (intel fortran, You need to build this to build DIRAC)
-setup_openmpi
 
-# Build DIRAC
-setup_dirac
+if [ "$dirac_install" == "YES" ]; then
+	# Build OpenMPI (intel fortran, You need to build this to build DIRAC)
+	setup_openmpi
+	# Build DIRAC
+	setup_dirac
+else
+	echo "Skip dirac installation."
+fi
 
 echo "Build end"
 function shutdown() {
