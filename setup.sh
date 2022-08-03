@@ -464,6 +464,28 @@ function check_files_and_dirs () {
 	fi
 }
 
+function check_install_programs () {
+	INSTALL_PROGRAMS=("git" "CMake")
+	if [ "$molcas_install" == "YES" ]; then
+		INSTALL_PROGRAMS+=("Molcas")
+	fi
+	if [ "$dirac_install" == "YES" ]; then
+		INSTALL_PROGRAMS+=("DIRAC")
+	fi
+	if [ "$utchem_install" == "YES" ]; then
+		INSTALL_PROGRAMS+=("UTChem")
+	fi
+	if [ "$utchem_install" == "YES" ] || [ "$dirac_install" == "YES" ]; then
+		INSTALL_PROGRAMS+=("OpenMPI")
+	fi
+
+	echo "The following programs will be installed:"
+	for PROGRAM in "${INSTALL_PROGRAMS[@]}"
+	do
+		echo "$PROGRAM"
+	done
+}
+
 function whether_install_or_not() {
     ANS="YES"
     while true; do
@@ -548,6 +570,7 @@ PROGRAM_NAME="DIRAC"
 dirac_install=$(whether_install_or_not)
 PROGRAM_NAME="UTCHEM"
 utchem_install=$(whether_install_or_not)
+check_install_programs
 
 # Check files and directories
 check_files_and_dirs
@@ -578,6 +601,12 @@ else
 	echo "Skip Molcas installation."
 fi
 
+if [ "$utchem_install" == "YES" ] || [ "$dirac_install" == "YES" ]; then
+	# Build OpenMPI (intel fortran, You need to build this to build DIRAC or UTCHEM)
+	setup_openmpi
+else
+	echo "Skip OpenMPI installation."
+fi
 
 # Setup utchem
 if [ "$utchem_install" == "YES" ]; then
@@ -588,8 +617,6 @@ fi
 
 
 if [ "$dirac_install" == "YES" ]; then
-	# Build OpenMPI (intel fortran, You need to build this to build DIRAC)
-	setup_openmpi
 	# Build DIRAC
 	setup_dirac
 else
