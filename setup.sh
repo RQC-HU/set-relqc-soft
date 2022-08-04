@@ -77,24 +77,33 @@ function test_utchem () {
 			TEST_SCRIPT_DIR="$(dirname "$TEST_SCRIPT_PATH")"
 			cd "$TEST_SCRIPT_DIR"
 			echo "Start Running a test script under: ${TEST_SCRIPT_DIR}"
-			sh "$TEST_SCRIPT_PATH" scratch test-results
-			echo "Finished Running a test script under: ${TEST_SCRIPT_DIR}"
-			outputs=$(find "$TEST_SCRIPT_DIR" -name "*.utout" -printf "%f\n")
-
-			#<< "#COMMENT"
-			for output in $outputs
+			SCRATCH="scratch"
+			TEST_RESULTS="test-results"
+			mkdir -p ${SCRATCH} ${TEST_RESULTS}
+			for ii in *.ut
 			do
+				echo
+				echo "=================================================================="
+				echo "Testing..." $ii
+				date
+				OUTPUT="${ii}out"
+				echo "Output file: ${OUTPUT}"
+				echo "../../boot/utchem -n 3 -w ${SCRATCH} $ii >& ${TEST_RESULTS}/$OUTPUT"
+
+				../../boot/utchem -n 3 -w "${SCRATCH} $ii" > "${TEST_RESULTS}/$OUTPUT" 2>&1
+				date
+				echo "End running test script"
+
+				#<< "#COMMENT"
 				tests_count=$(($tests_count+1))
-				reference_output="$TEST_SCRIPT_DIR/$output"
-				result_output="$TEST_SCRIPT_DIR/test-results/$output"
+				reference_output="$TEST_SCRIPT_DIR/$OUTPUT"
+				result_output="$TEST_SCRIPT_DIR/${TEST_RESULTS}/$OUTPUT"
 				references=($(grep "Total Energy" "$reference_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF " "}'))
 				results=($(grep "Total Energy" "$result_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF "\n"}'))
 
-				echo "------------------------------------------------------------------"
-				echo "Start checking test results for $reference_output and $result_output"
+				echo "Start checking test results for $reference_output and $result_output..."
 				echo "references: " "${references[@]}"
 				echo "results: " "${results[@]}"
-				echo "------------------------------------------------------------------"
 				if [ ${#references[@]} -ne ${#results[@]} ] ; then
 					failed_test_files+=("$result_output")
 					echo "ERROR: references and results are not same length"
@@ -130,9 +139,12 @@ function test_utchem () {
 				else
 					echo "ERROR: SOME TESTS FAILED for $result_output"
 				fi
+				#COMMENT
+				echo "End checking test results for $reference_output and $result_output..."
+				echo "=================================================================="
+				echo
 			done
-			#COMMENT
-			echo "Finished testing a script under: ${TEST_SCRIPT_DIR}"
+			echo "Finished Running test scripts under: ${TEST_SCRIPT_DIR}"
 		fi
 	done
 	echo "Finished testing UTChem"
@@ -319,17 +331,24 @@ function setup_git () {
 
 function setup_python () {
 	PYENVROOT="$INSTALL_PATH/.pyenv"
-	git clone https://github.com/pyenv/pyenv.git "$PYENVROOT"
-	echo "export PYENV_ROOT=\"$PYENVROOT/.pyenv\"" >> "$HOME/.bashrc"
-	echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >> "$HOME/.bashrc"
-	echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
+	SKIP_PYENV_INSTALL="Y"
+	# if PYENVROOT exists, skip clone
+	if [ ! -d "$PYENVROOT" ]; then
+		git clone https://github.com/pyenv/pyenv.git "$PYENVROOT"
+		SKIP_PYENV_INSTALL="N"
+	fi
 	export PYENV_ROOT="$INSTALL_PATH/.pyenv"
 	export PATH="$PYENV_ROOT/bin:$PATH"
 	eval "$(pyenv init -)"
 	echo "$PYENV_ROOT , $INSTALL_PATH " >> "$SCRIPT_PATH/python-version.log" 2>&1
 	echo "$PATH" | tr ':' '\n' >> "$SCRIPT_PATH/python-version.log" 2>&1
-	pyenv install "$PYTHON2_VERSION"
-	pyenv install "$PYTHON3_VERSION"
+	if [ "$SKIP_PYENV_INSTALL" = "N" ]; then
+		echo "export PYENV_ROOT=\"$PYENVROOT/.pyenv\"" >> "$HOME/.bashrc"
+		echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >> "$HOME/.bashrc"
+		echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
+		pyenv install "$PYTHON2_VERSION"
+		pyenv install "$PYTHON3_VERSION"
+	fi
 	pyenv global "$PYTHON2_VERSION"
 	python -V >> "$SCRIPT_PATH/python-version.log" 2>&1
 
