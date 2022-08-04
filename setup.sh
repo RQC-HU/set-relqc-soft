@@ -514,9 +514,9 @@ function check_install_programs () {
 }
 
 function whether_install_or_not() {
-    ANS="YES"
+    ANS="NO"
     while true; do
-    read -p "Do you want to install $PROGRAM_NAME? (Y/n)" yn
+    read -p "Do you want to install $PROGRAM_NAME? (y/N)" yn
     case $yn in
         [Yy]* ) ANS="YES"; break;;
         [Nn]* ) ANS="NO"; break;;
