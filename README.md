@@ -62,7 +62,7 @@
 (SETUP_NPROCSの値は6以上を推奨します)  
 
 ```sh
- SETUP_NPROCS=使用コア数 sh setup.sh
+ INSTALL_PATH=/path/to/intell SETUP_NPROCS=使用コア数 sh setup.sh
  # (e.g.)
  INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 sh setup.sh
 ```
