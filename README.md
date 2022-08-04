@@ -60,11 +60,13 @@
 環境変数INSTALL_PATHを設定すると指定ディレクトリ下にインストールされます。指定しないとデフォルトの\$HOME/tmp/Softwareにインストールされます  
 環境変数SETUP_NPROCSはビルドに使用するプロセス数を指定します。値が不正であるか指定しない場合はデフォルトの1プロセスになります  
 (SETUP_NPROCSの値は6以上を推奨します)  
-
+各ソフトウェアのログは自動的にlogファイルとして書き込まれますが、全体のログを取りたい場合は必ずteeコマンドを用いてログを取ってください(インタラクティブな部分があるので sh setup.sh > setup.log 2>&1 のようなログの取り方だと正常にスクリプトが実行されません)
 ```sh
- INSTALL_PATH=/path/to/intell SETUP_NPROCS=使用コア数 sh setup.sh
+ INSTALL_PATH=/path/to/install SETUP_NPROCS=使用コア数 sh setup.sh
  # (e.g.)
  INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 sh setup.sh
+ # 全体のビルドのログを取りたい場合
+ INSTALL_PATH=/path/to/install SETUP_NPROCS=12 sh setup.sh | tee setup.log
 ```
 
 - スクリプトが始まるとUTChem,DIRAC,Molcasについてはインストールをするかどうかをきくようになっているので、yまたはYのあとEnter keyを打つとインストールされます(それ以外はどんな入力が行われてもインストールされません)
