@@ -119,17 +119,16 @@ function test_utchem () {
 						all_test_passed="NO"
 						echo "ERROR: TEST FAILED"
 						echo "threshold = $threshold"
-						echo "${references[$((i-1))]} is different between references and results"
-						echo "references[$i] = ${references[$i]}"
-						echo "results[$i] = ${results[$i]}"
-						echo "diff = $diff"
-						echo "abs(diff) = ${diff#-}"
+						echo "Difference between the reference and the result in the calculation of ${references[$((i-1))]} is greater than the threshold."
+						echo "references = ${references[$i]} Hartree"
+						echo "results = ${results[$i]} Hartree"
+						echo "abs(diff) = ${absdiff} Hartree"
 					fi
 				done
 				if [ $all_test_passed = "YES" ] ; then
 					echo "ALL TESTS PASSED for $result_output"
 				else
-					echo "ERROR: SOME TESTS FAILED"
+					echo "ERROR: SOME TESTS FAILED for $result_output"
 				fi
 			done
 			#COMMENT
