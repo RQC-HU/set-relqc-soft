@@ -66,3 +66,9 @@
  # (e.g.)
  INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 sh setup.sh
 ```
+
+- スクリプトが始まるとUTChem,DIRAC,Molcasについてはインストールをするかどうかをきくようになっているので、yまたはYのあとEnter keyを打つとインストールされます(それ以外はどんな入力が行われてもインストールされません)
+
+```
+Do you want to install DIRAC? (y/N)
+```
