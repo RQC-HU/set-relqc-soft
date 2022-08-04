@@ -63,38 +63,49 @@ function configure_molcas () {
 function test_utchem () {
 	set +e
 	echo "Start testing UTChem..."
-	FAILED_TESTS=()
-	TESTS_COUNT=0
+	failed_test_files=()
+	tests_count=0
 	for TEST_SCRIPT_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh")
 	do
-		DFT_GEOPT="$(echo $TEST_SCRIPT_PATH | grep dft.geopt)"
+		DFT_GEOPT="$(echo "$TEST_SCRIPT_PATH" | grep dft.geopt)"
 		if [ "$DFT_GEOPT" ]; then
-			echo "Skipping test script '$TEST_SCRIPT_PATH'"
+			echo "Skipping test script $TEST_SCRIPT_PATH"
 			continue
 		fi
-		TCE="$(echo $TEST_SCRIPT_PATH | grep tce.energy.h2o.sto3g)"
+		TCE="$(echo "$TEST_SCRIPT_PATH" | grep tce.energy.h2o.sto3g)"
 		if [ "$TCE" ]; then
 			TEST_SCRIPT_DIR="$(dirname "$TEST_SCRIPT_PATH")"
 			cd "$TEST_SCRIPT_DIR"
 			echo "Start Running a test script under: ${TEST_SCRIPT_DIR}"
-			sh "$TEST_SCRIPT_PATH" scratch test-results
-			echo "Finished Running a test script under: ${TEST_SCRIPT_DIR}"
-			outputs=$(find "$TEST_SCRIPT_DIR" -name "*.utout" -printf "%f\n")
-
-			#<< "#COMMENT"
-			for output in $outputs
+			SCRATCH="scratch"
+			TEST_RESULTS="test-results"
+			mkdir -p ${SCRATCH} ${TEST_RESULTS}
+			for ii in *.ut
 			do
-				TESTS_COUNT=$(($TESTS_COUNT+1))
-				references=($(grep "Total Energy" "$TEST_SCRIPT_DIR/$output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF " "}'))
-				results=($(grep "Total Energy" "$TEST_SCRIPT_DIR/test-results/$output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF "\n"}'))
+				echo
+				echo "=================================================================="
+				echo "Testing..." $ii
+				date
+				OUTPUT="${ii}out"
+				echo "Output file: ${OUTPUT}"
+				echo "../../boot/utchem -n 3 -w ${SCRATCH} $ii >& ${TEST_RESULTS}/$OUTPUT"
 
-				echo "------------------------------------------------------------------"
-				echo "Start checking test results for $TEST_SCRIPT_DIR/$output and $TEST_SCRIPT_DIR/test-results/$output"
+				../../boot/utchem -n 3 -w "${SCRATCH} $ii" > "${TEST_RESULTS}/$OUTPUT" 2>&1
+				date
+				echo "End running test script"
+
+				#<< "#COMMENT"
+				tests_count=$(($tests_count+1))
+				reference_output="$TEST_SCRIPT_DIR/$OUTPUT"
+				result_output="$TEST_SCRIPT_DIR/${TEST_RESULTS}/$OUTPUT"
+				references=($(grep "Total Energy" "$reference_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF " "}'))
+				results=($(grep "Total Energy" "$result_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF "\n"}'))
+
+				echo "Start checking test results for $reference_output and $result_output..."
 				echo "references: " "${references[@]}"
 				echo "results: " "${results[@]}"
-				echo "------------------------------------------------------------------"
 				if [ ${#references[@]} -ne ${#results[@]} ] ; then
-					FAILED_TESTS+=("$output")
+					failed_test_files+=("$result_output")
 					echo "ERROR: references and results are not same length"
 					echo "So we don't evaluate the results of Total Energy"
 					echo "references:" "${references[@]}"
@@ -107,42 +118,44 @@ function test_utchem () {
 					diff=$( echo "${references[$i]} ${results[$i]}" | awk '{printf $1 - $2}' )
 					absdiff=${diff#-}
 					threshold=1e-7
-					pass_test=$( echo "${absdiff} ${threshold}" | awk '{if($1 <= $2) {print "YES"} else {print "NO"}}' )
+					is_pass_test=$( echo "${absdiff} ${threshold}" | awk '{if($1 <= $2) {print "YES"} else {print "NO"}}' )
 					all_test_passed="YES"
-					echo "Checking abs(reference - result): ${absdiff} <= ${threshold} ? ... ${pass_test}"
+					echo "Checking abs(reference - result): ${absdiff} <= ${threshold} ? ... ${is_pass_test}"
 
-					if [ $pass_test = "YES" ] ; then
+					if [ "$is_pass_test" = "YES" ] ; then
 						echo "TEST PASSED"
 					else
 						all_test_passed="NO"
 						echo "ERROR: TEST FAILED"
 						echo "threshold = $threshold"
-						echo "${references[$((i-1))]} is different between references and results"
-						echo "references[$i] = ${references[$i]}"
-						echo "results[$i] = ${results[$i]}"
-						echo "diff = $diff"
-						echo "abs(diff) = ${diff#-}"
+						echo "Difference between the reference and the result in the calculation of ${references[$((i-1))]} is greater than the threshold."
+						echo "references = ${references[$i]} Hartree"
+						echo "results = ${results[$i]} Hartree"
+						echo "abs(diff) = ${absdiff} Hartree"
 					fi
 				done
 				if [ $all_test_passed = "YES" ] ; then
-					echo "ALL TESTS PASSED for $TEST_SCRIPT_DIR/test-results/$output"
+					echo "ALL TESTS PASSED for $result_output"
 				else
-					echo "ERROR: SOME TESTS FAILED"
+					echo "ERROR: SOME TESTS FAILED for $result_output"
 				fi
+				#COMMENT
+				echo "End checking test results for $reference_output and $result_output..."
+				echo "=================================================================="
+				echo
 			done
-			#COMMENT
-			echo "Finished testing a script under: ${TEST_SCRIPT_DIR}"
+			echo "Finished Running test scripts under: ${TEST_SCRIPT_DIR}"
 		fi
 	done
 	echo "Finished testing UTChem"
 	echo "------------------------------------------------------------------"
 	echo "Summary of UTChem tests"
-	echo "ALL TESTS COUNT: ${TESTS_COUNT}"
-	echo "FAILED TESTS COUNT: ${#FAILED_TESTS[@]}"
-	if [ ${#FAILED_TESTS[@]} -ne 0 ]; then
+	echo "ALL TESTS: ${tests_count}"
+	echo "FAILED TESTS: ${#failed_test_files[@]}"
+	if [ ${#failed_test_files[@]} -ne 0 ]; then
 		echo "ERROR: SOME TESTS FAILED"
 		echo "FAILED TESTS:"
-		for failed_test in "${FAILED_TESTS[@]}"
+		for failed_test in "${failed_test_files[@]}"
 		do
 			echo "  $failed_test"
 		done
@@ -154,13 +167,20 @@ function test_utchem () {
 }
 
 function setup_utchem () {
+	OMPI_VERSION="$OPENMPI4_VERSION"
+	set_ompi_path # set OpenMPI PATH
+
 	UTCHEM_PATCH=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
 	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
 	cp "${UTCHEM_TARBALL}" "${UTCHEM}"
 	cp -r "${UTCHEM_PATCH}" "${UTCHEM}"
 	PATCHDIR=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
 	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
-	UTCHEM_BUILD_DIR="${UTCHEM}/utchem"
+
+	# Unzip utchem.tar file
+	cd "${UTCHEM}"
+	tar xf "${UTCHEM_TARBALL}"
+    UTCHEM_BUILD_DIR=$(find "$UTCHEM" -mindepth 1 -type d -name "utchem*")
 	GA4="${UTCHEM_BUILD_DIR}/ga4-0-2"
 
 	# File location of Patch files and files to patch
@@ -170,10 +190,6 @@ function setup_utchem () {
 	GLOBALPATCH="${PATCHDIR}/global_patch"
 	GACONFIGFILE="${GA4}/config/makefile.h"
 	GACONFIGPATCH="${PATCHDIR}/makefile.h.patch"
-
-	# Unzip utchem.tar file
-	cd "${UTCHEM}"
-	tar xf "${UTCHEM_TARBALL}"
 
 	# Patch files (To run "make" command normally)
 	patch "${GAMAKEFILE}" "${GAPATCH}"
@@ -185,8 +201,8 @@ function setup_utchem () {
 	#       change linux_ifort_x86_64_i8.config.sh.in to linux_gcc4_x86_64_i8_config.sh.in and
 	#       change linux_ifort_x86_64_i8.makeconfig.in to linux_gcc4_x86_64_i8_makeconfig.in.
 	cd "${UTCHEM_BUILD_DIR}/config"
-	cp linux_ifort_x86_64_i8.config.sh.in linux_ifc.config.sh.in
-	cp linux_ifort_x86_64_i8.makeconfig.in linux_ifc.makeconfig.in
+	cp linux_mpi_ifort_x86_64_i8.config.sh.in linux_ifc.config.sh.in
+	cp linux_mpi_ifort_x86_64_i8.makeconfig.in linux_ifc.makeconfig.in
 
 
 	# Configure utchem
@@ -195,7 +211,8 @@ function setup_utchem () {
 	#   (e.g. If you installed a python executable file at /home/users/username/python)
 	#   ./configure --python=/home/users/username/python
 	cd "${UTCHEM_BUILD_DIR}"
-	./configure --python=python 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
+	UTCHEM_MPI="$(dirname "$( which mpif77 | xargs dirname )")"
+	./configure --mpi="$UTCHEM_MPI" --python=python 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
 
 	# Make utchem (${UTCHEM_BUILD_DIR}/boot/utchem is executable file)
 	make 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
@@ -308,25 +325,32 @@ function setup_git () {
 		exit $ret
 	fi
 	echo "prepend-path    PATH            ${GIT}/bin" >> "${HOME}/modulefiles/git/${GIT_VERSION}"
-	module load git/${GIT_VERSION} && git --version
+	module load "git/${GIT_VERSION}" && git --version
     cd "${SCRIPT_PATH}"
 }
 
 function setup_python () {
 	PYENVROOT="$INSTALL_PATH/.pyenv"
-	git clone https://github.com/pyenv/pyenv.git "$PYENVROOT"
-	echo "export PYENV_ROOT=\"$PYENVROOT/.pyenv\"" >> "$HOME/.bashrc"
-	echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >> "$HOME/.bashrc"
-	echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
+	SKIP_PYENV_INSTALL="Y"
+	# if PYENVROOT exists, skip clone
+	if [ ! -d "$PYENVROOT" ]; then
+		git clone https://github.com/pyenv/pyenv.git "$PYENVROOT"
+		SKIP_PYENV_INSTALL="N"
+	fi
 	export PYENV_ROOT="$INSTALL_PATH/.pyenv"
 	export PATH="$PYENV_ROOT/bin:$PATH"
 	eval "$(pyenv init -)"
-	echo "$PYENV_ROOT , $INSTALL_PATH " >> $SCRIPT_PATH/python-version.log 2>&1
-	echo "$PATH" | tr ':' '\n' >> $SCRIPT_PATH/python-version.log 2>&1
-	pyenv install "$PYTHON2_VERSION"
-	pyenv install "$PYTHON3_VERSION"
+	echo "$PYENV_ROOT , $INSTALL_PATH " >> "$SCRIPT_PATH/python-version.log" 2>&1
+	echo "$PATH" | tr ':' '\n' >> "$SCRIPT_PATH/python-version.log" 2>&1
+	if [ "$SKIP_PYENV_INSTALL" = "N" ]; then
+		echo "export PYENV_ROOT=\"$PYENVROOT/.pyenv\"" >> "$HOME/.bashrc"
+		echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >> "$HOME/.bashrc"
+		echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
+		pyenv install "$PYTHON2_VERSION"
+		pyenv install "$PYTHON3_VERSION"
+	fi
 	pyenv global "$PYTHON2_VERSION"
-	python -V >> $SCRIPT_PATH/python-version.log 2>&1
+	python -V >> "$SCRIPT_PATH/python-version.log" 2>&1
 
 }
 
@@ -454,8 +478,11 @@ function check_files_and_dirs () {
 		mkdir -p "${MOLCAS}"
 		check_molcas_files
 	fi
+	if [ "$utchem_install" == "YES" ] || [ "$dirac_install" == "YES" ]; then
+		mkdir -p "${OPENMPI}"
+	fi
 	if [ "$dirac_install" == "YES" ]; then
-		mkdir -p "${DIRAC}" "${OPENMPI}"
+		mkdir -p "${DIRAC}"
 		mkdir -p "${MODULEFILES}/dirac"
 	fi
 	if [ "$utchem_install" == "YES" ]; then
@@ -464,10 +491,32 @@ function check_files_and_dirs () {
 	fi
 }
 
+function check_install_programs () {
+	INSTALL_PROGRAMS=("git" "CMake")
+	if [ "$molcas_install" == "YES" ]; then
+		INSTALL_PROGRAMS+=("Molcas")
+	fi
+	if [ "$dirac_install" == "YES" ]; then
+		INSTALL_PROGRAMS+=("DIRAC")
+	fi
+	if [ "$utchem_install" == "YES" ]; then
+		INSTALL_PROGRAMS+=("UTChem")
+	fi
+	if [ "$utchem_install" == "YES" ] || [ "$dirac_install" == "YES" ]; then
+		INSTALL_PROGRAMS+=("OpenMPI")
+	fi
+
+	echo "The following programs will be installed:"
+	for PROGRAM in "${INSTALL_PROGRAMS[@]}"
+	do
+		echo "$PROGRAM"
+	done
+}
+
 function whether_install_or_not() {
-    ANS="YES"
+    ANS="NO"
     while true; do
-    read -p "Do you want to install $PROGRAM_NAME? (Y/n)" yn
+    read -p "Do you want to install $PROGRAM_NAME? (y/N)" yn
     case $yn in
         [Yy]* ) ANS="YES"; break;;
         [Nn]* ) ANS="NO"; break;;
@@ -548,6 +597,7 @@ PROGRAM_NAME="DIRAC"
 dirac_install=$(whether_install_or_not)
 PROGRAM_NAME="UTCHEM"
 utchem_install=$(whether_install_or_not)
+check_install_programs
 
 # Check files and directories
 check_files_and_dirs
@@ -578,6 +628,12 @@ else
 	echo "Skip Molcas installation."
 fi
 
+if [ "$utchem_install" == "YES" ] || [ "$dirac_install" == "YES" ]; then
+	# Build OpenMPI (intel fortran, You need to build this to build DIRAC or UTCHEM)
+	setup_openmpi
+else
+	echo "Skip OpenMPI installation."
+fi
 
 # Setup utchem
 if [ "$utchem_install" == "YES" ]; then
@@ -588,8 +644,6 @@ fi
 
 
 if [ "$dirac_install" == "YES" ]; then
-	# Build OpenMPI (intel fortran, You need to build this to build DIRAC)
-	setup_openmpi
 	# Build DIRAC
 	setup_dirac
 else
