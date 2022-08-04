@@ -67,12 +67,12 @@ function test_utchem () {
 	tests_count=0
 	for TEST_SCRIPT_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh")
 	do
-		DFT_GEOPT="$(echo $TEST_SCRIPT_PATH | grep dft.geopt)"
+		DFT_GEOPT="$(echo "$TEST_SCRIPT_PATH" | grep dft.geopt)"
 		if [ "$DFT_GEOPT" ]; then
-			echo "Skipping test script '$TEST_SCRIPT_PATH'"
+			echo "Skipping test script $TEST_SCRIPT_PATH"
 			continue
 		fi
-		TCE="$(echo $TEST_SCRIPT_PATH | grep tce.energy.h2o.sto3g)"
+		TCE="$(echo "$TEST_SCRIPT_PATH" | grep tce.energy.h2o.sto3g)"
 		if [ "$TCE" ]; then
 			TEST_SCRIPT_DIR="$(dirname "$TEST_SCRIPT_PATH")"
 			cd "$TEST_SCRIPT_DIR"
@@ -200,7 +200,8 @@ function setup_utchem () {
 	#   (e.g. If you installed a python executable file at /home/users/username/python)
 	#   ./configure --python=/home/users/username/python
 	cd "${UTCHEM_BUILD_DIR}"
-	./configure --python=python 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
+	UTCHEM_MPI="$(dirname "$( which mpif77 | xargs dirname )")"
+	./configure --mpi="$UTCHEM_MPI" --python=python 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
 
 	# Make utchem (${UTCHEM_BUILD_DIR}/boot/utchem is executable file)
 	make 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
@@ -313,7 +314,7 @@ function setup_git () {
 		exit $ret
 	fi
 	echo "prepend-path    PATH            ${GIT}/bin" >> "${HOME}/modulefiles/git/${GIT_VERSION}"
-	module load git/${GIT_VERSION} && git --version
+	module load "git/${GIT_VERSION}" && git --version
     cd "${SCRIPT_PATH}"
 }
 
@@ -326,12 +327,12 @@ function setup_python () {
 	export PYENV_ROOT="$INSTALL_PATH/.pyenv"
 	export PATH="$PYENV_ROOT/bin:$PATH"
 	eval "$(pyenv init -)"
-	echo "$PYENV_ROOT , $INSTALL_PATH " >> $SCRIPT_PATH/python-version.log 2>&1
-	echo "$PATH" | tr ':' '\n' >> $SCRIPT_PATH/python-version.log 2>&1
+	echo "$PYENV_ROOT , $INSTALL_PATH " >> "$SCRIPT_PATH/python-version.log" 2>&1
+	echo "$PATH" | tr ':' '\n' >> "$SCRIPT_PATH/python-version.log" 2>&1
 	pyenv install "$PYTHON2_VERSION"
 	pyenv install "$PYTHON3_VERSION"
 	pyenv global "$PYTHON2_VERSION"
-	python -V >> $SCRIPT_PATH/python-version.log 2>&1
+	python -V >> "$SCRIPT_PATH/python-version.log" 2>&1
 
 }
 
