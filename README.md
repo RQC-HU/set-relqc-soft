@@ -18,10 +18,10 @@
   - いくつかのツールはインターネットアクセスを必要とするため、セットアップを行うサーバからインターネットへのアクセスが可能である必要があります
 
 - Environment Modules(必須ではないが推奨)
-  - セットアップされていない場合はPATHをスクリプト内で自動的に解決しますが、DIRACなどの実行時に毎回OpenMPIのパスを設定しないといけなくなるのでmoduleコマンドを使える状態にすることを推奨します  
-  - [公式サイトはこちら](http://modules.sourceforge.net/)  
-  - 他のPre-requirementsがEnvironment Modulesを使ってセットアップされている場合、スクリプト内でmodule purgeをしているため、setup.shのmodule purgeのあとでmodule loadをするようにスクリプトを変更してから実行してください  
-  (例: Intel(R) FortranやMKLをEnvironment Modulesを使ってintel-fortran及びmklという名前でセットアップしている場合)  
+  - セットアップされていない場合はPATHをスクリプト内で自動的に解決しますが、DIRACなどの実行時に毎回OpenMPIのパスを設定しないといけなくなるのでmoduleコマンドを使える状態にすることを推奨します
+  - [公式サイトはこちら](http://modules.sourceforge.net/)
+  - 他のPre-requirementsがEnvironment Modulesを使ってセットアップされている場合、スクリプト内でmodule purgeをしているため、setup.shのmodule purgeのあとでmodule loadをするようにスクリプトを変更してから実行してください
+  (例: Intel(R) FortranやMKLをEnvironment Modulesを使ってintel-fortran及びmklという名前でセットアップしている場合)
 
   ```sh
     # Clean modulefiles
@@ -56,10 +56,10 @@
 - [UTChem](http://ccl.scc.kyushu-u.ac.jp/~nakano/papers/lncs-2660-84.pdf)
 ## How to setup
 
-以下のコマンドを実行するとビルドが実行されます  
-環境変数INSTALL_PATHを設定すると指定ディレクトリ下にインストールされます。指定しないとデフォルトの\$HOME/tmp/Softwareにインストールされます  
-環境変数SETUP_NPROCSはビルドに使用するプロセス数を指定します。値が不正であるか指定しない場合はデフォルトの1プロセスになります  
-(SETUP_NPROCSの値は6以上を推奨します)  
+以下のコマンドを実行するとビルドが実行されます
+環境変数INSTALL_PATHを設定すると指定ディレクトリ下にインストールされます。指定しないとデフォルトの\$HOME/softwareにインストールされます
+環境変数SETUP_NPROCSはビルドに使用するプロセス数を指定します。値が不正であるか指定しない場合はデフォルトの1プロセスになります
+(SETUP_NPROCSの値は6以上を推奨します)
 各ソフトウェアのログは自動的にlogファイルとして書き込まれますが、全体のログを取りたい場合は必ずteeコマンドを用いてログを取ってください(インタラクティブな部分があるので sh setup.sh > setup.log 2>&1 のようなログの取り方だと正常にスクリプトが実行されません)
 ```sh
  INSTALL_PATH=/path/to/install SETUP_NPROCS=使用コア数 sh setup.sh

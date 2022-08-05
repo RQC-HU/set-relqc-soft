@@ -530,7 +530,7 @@ function set_install_path () {
 	# Check if the variable is set
     if [ -z "$INSTALL_PATH" ]; then
         echo "INSTALL_PATH is not set"
-        INSTALL_PATH="${HOME}/Software"
+        INSTALL_PATH="${HOME}/software"
 		echo "INSTALL_PATH is set to: $INSTALL_PATH"
     fi
 
