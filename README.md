@@ -54,13 +54,12 @@
 - [dirac](http://diracprogram.org) (version 19.0, 21.1, 22.0)
 - [molcas](https://molcas.org)
 - [UTChem](http://ccl.scc.kyushu-u.ac.jp/~nakano/papers/lncs-2660-84.pdf)
+
 ## How to setup
 
+
 以下のコマンドを実行するとビルドが実行されます
-環境変数INSTALL_PATHを設定すると指定ディレクトリ下にインストールされます。指定しないとデフォルトの\$HOME/softwareにインストールされます
-環境変数SETUP_NPROCSはビルドに使用するプロセス数を指定します。値が不正であるか指定しない場合はデフォルトの1プロセスになります
-(SETUP_NPROCSの値は6以上を推奨します)
-各ソフトウェアのログは自動的にlogファイルとして書き込まれますが、全体のログを取りたい場合は必ずteeコマンドを用いてログを取ってください(インタラクティブな部分があるので sh setup.sh > setup.log 2>&1 のようなログの取り方だと正常にスクリプトが実行されません)
+
 ```sh
  INSTALL_PATH=/path/to/install SETUP_NPROCS=使用コア数 sh setup.sh
  # (e.g.)
@@ -69,8 +68,33 @@
  INSTALL_PATH=/path/to/install SETUP_NPROCS=12 sh setup.sh | tee setup.log
 ```
 
+- 環境変数INSTALL_PATHを設定すると指定ディレクトリ下にインストールされます。指定しないとデフォルトの\$HOME/softwareにインストールされます
+- INSTALL_PATHで指定しているディレクトリはインストール時**存在していない**必要があります(上書きを防ぐための仕様です)
+- 環境変数SETUP_NPROCSはビルドに使用するプロセス数を指定します。値が不正であるか指定しない場合はデフォルトの1プロセスになります(SETUP_NPROCSの値は6以上を推奨します)
+- 各ソフトウェアのログは自動的にlogファイルとして書き込まれますが、全体のログを取りたい場合は必ずteeコマンドを用いてログを取ってください(インタラクティブな部分があるので sh setup.sh > setup.log 2>&1 のようなログの取り方だと正常にスクリプトが実行されません)
+
+
+
 - スクリプトが始まるとUTChem,DIRAC,Molcasについてはインストールをするかどうかをきくようになっているので、yまたはYのあとEnter keyを打つとインストールされます(それ以外はどんな入力が行われてもインストールされません)
 
-```
+```sh
 Do you want to install DIRAC? (y/N)
 ```
+
+### インストール時に存在しているディレクトリ上にソフトウェアをインストールしたい場合
+
+  上書きされる可能性があることを承知した上で、すでに存在するディレクトリをINSTALL_PATHに指定したい場合は環境変数OVERWRITEをYESに設定してください
+
+  ```sh
+  OVERWRITE=YES INSTALL_PATH=$HOME/softwares SETUP_NPROCS=12 sh setup.sh
+  ```
+
+  OVERWRITEをYESにした場合スクリプトのはじめに以下のような質問が出るので、上書きのことについて理解して了承している場合yを選択してください
+
+  ```sh
+  Warning: OVERWRITE option selected YES.  may overwrite the existing path! /path/to/install.
+  If you want to keep the existing path, please set OVERWRITE not to YES.
+  Do you want to continue? (y/N)
+  ```
+
+  以上でインストール時に存在しているディレクトリにもソフトウェアをインストールすることができるようになります

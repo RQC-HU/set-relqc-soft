@@ -38,8 +38,8 @@ function configure_molcas () {
 
 	# Now we can configure the Molcas package
 	echo "Start configuring Molcas package"
-	cp "$MOLCAS_LICENSE" "$MOLCAS"
-	cp "$MOLCAS_TARBALL" "$MOLCAS"
+	cp -f "$MOLCAS_LICENSE" "$MOLCAS"
+	cp -f "$MOLCAS_TARBALL" "$MOLCAS"
 	cd "$MOLCAS"
 	tar -xf "$MOLCAS_TARBALL"
 	# Check if the directory exists
@@ -172,8 +172,8 @@ function setup_utchem () {
 
 	UTCHEM_PATCH=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
 	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
-	cp "${UTCHEM_TARBALL}" "${UTCHEM}"
-	cp -r "${UTCHEM_PATCH}" "${UTCHEM}"
+	cp -f "${UTCHEM_TARBALL}" "${UTCHEM}"
+	cp -rf "${UTCHEM_PATCH}" "${UTCHEM}"
 	PATCHDIR=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
 	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
 
@@ -201,8 +201,8 @@ function setup_utchem () {
 	#       change linux_ifort_x86_64_i8.config.sh.in to linux_gcc4_x86_64_i8_config.sh.in and
 	#       change linux_ifort_x86_64_i8.makeconfig.in to linux_gcc4_x86_64_i8_makeconfig.in.
 	cd "${UTCHEM_BUILD_DIR}/config"
-	cp linux_mpi_ifort_x86_64_i8.config.sh.in linux_ifc.config.sh.in
-	cp linux_mpi_ifort_x86_64_i8.makeconfig.in linux_ifc.makeconfig.in
+	cp -f linux_mpi_ifort_x86_64_i8.config.sh.in linux_ifc.config.sh.in
+	cp -f linux_mpi_ifort_x86_64_i8.makeconfig.in linux_ifc.makeconfig.in
 
 
 	# Configure utchem
@@ -228,16 +228,16 @@ function run_dirac_testing () {
 	set +e
 	make test
 	set -e
-	cp Testing/Temporary/LastTest.log "$DIRAC_BASEDIR/test_results/$TEST_TYPE"
+	cp -f Testing/Temporary/LastTest.log "$DIRAC_BASEDIR/test_results/$TEST_TYPE"
 	if [ -f Testing/Temporary/LastTestsFailed.log ]; then
-	cp Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR/test_results/$TEST_TYPE"
+	cp -f Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR/test_results/$TEST_TYPE"
 	fi
 }
 
 function build_dirac () {
 	echo "DIRAC NRPOCS : $DIRAC_NPROCS"
 	DIRAC_BASEDIR="$DIRAC/$DIRAC_VERSION"
-	cp -r "$SCRIPT_PATH/dirac/$DIRAC_VERSION" "$DIRAC"
+	cp -rf "$SCRIPT_PATH/dirac/$DIRAC_VERSION" "$DIRAC"
 	cd "$DIRAC_BASEDIR"
 	# Unzip tarball
 	DIRAC_TAR="DIRAC-$DIRAC_VERSION-Source.tar.gz"
@@ -315,8 +315,8 @@ function setup_dirac () {
 function setup_git () {
 	tar -xf "./git/git-${GIT_VERSION}.tar.gz" -C "${GIT}"
 	# ${GIT} にコピーされたtarballは使わないが、あとからどのtarballを使ってビルドしたか確認しやすくするためにコピーしておく
-	cp "./git/git-${GIT_VERSION}.tar.gz" "${GIT}"
-	cp "./git/${GIT_VERSION}" "${HOME}/modulefiles/git"
+	cp -f "./git/git-${GIT_VERSION}.tar.gz" "${GIT}"
+	cp -f "./git/${GIT_VERSION}" "${HOME}/modulefiles/git"
 	cd "${GIT}/git-${GIT_VERSION}"
 	make prefix="${GIT}" -j "$SETUP_NPROCS"  && make prefix="${GIT}" install
 	ret=$?
@@ -358,8 +358,8 @@ function setup_cmake () {
 	# unzip cmake prebuild tarball
 	tar -xf "./cmake/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" -C "${CMAKE}"
 	# ${CMAKE} にコピーされたtarballは使わないが、あとからどのtarballを使ってビルドしたか確認しやすくするためにコピーしておく
-	cp "./cmake/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" "${CMAKE}"
-	cp "./cmake/${CMAKE_VERSION}" "${HOME}/modulefiles/cmake"
+	cp -f "./cmake/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" "${CMAKE}"
+	cp -f "./cmake/${CMAKE_VERSION}" "${HOME}/modulefiles/cmake"
 	echo "prepend-path    PATH    ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/bin" >> "${HOME}/modulefiles/cmake/${CMAKE_VERSION}"
 	echo "prepend-path    MANPATH ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/man" >> "${HOME}/modulefiles/cmake/${CMAKE_VERSION}"
     module load cmake/${CMAKE_VERSION} && cmake --version
@@ -528,18 +528,46 @@ function whether_install_or_not() {
 
 function set_install_path () {
 	# Check if the variable is set
-    if [ -z "$INSTALL_PATH" ]; then
+    if [ -z "${INSTALL_PATH:-}" ]; then
         echo "INSTALL_PATH is not set"
         INSTALL_PATH="${HOME}/software"
+		echo "INSTALL_PATH is set to default install path: $INSTALL_PATH"
+    else
 		echo "INSTALL_PATH is set to: $INSTALL_PATH"
-    fi
+	fi
+
+	# If overwrite is not set, change overwrite to NO
+	if [ -z "${OVERWRITE:-}" ]; then
+		OVERWRITE="NO"
+	fi
 
     # Check if the path exists
-    if [ -d "$INSTALL_PATH" ]; then
-        echo "$INSTALL_PATH is already exists"
-        echo "Please remove the directory and run the script again or set the another path that does not exist."
-        exit 1
-    fi
+	# OVERWRITE is set to YES if the user wants to overwrite the existing installation
+	if [ "${OVERWRITE}" = "YES" ]; then
+		echo "Warning: OVERWRITE option selected YES.  may overwrite the existing path! $INSTALL_PATH."
+		echo "If you want to keep the existing path, do not set OVERWRITE to YES."
+		ANS="NO"
+		while true; do
+			read -p "Do you want to continue? (y/N)" yn
+			case $yn in
+				[Yy]* ) ANS="YES"; break;;
+				[Nn]* ) ANS="NO"; break;;
+				* ) ANS="NO"; break;;
+			esac
+		done
+		if [ "$ANS" = "NO" ]; then
+			echo "Exiting."
+			exit 1
+		fi
+		echo "OVERWRITE option selected YES. may overwrite the existing path! $INSTALL_PATH."
+		return # No need to check if the path exists, because we are overwriting the files.
+	else
+		if [ -d "$INSTALL_PATH" ]; then
+			echo "$INSTALL_PATH is already exists"
+			echo "Please remove the directory and run the script again or set the another path that does not exist."
+			exit 1
+		fi
+	fi
 }
 
 # Unset all aliases
