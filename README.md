@@ -5,7 +5,7 @@
 ## Pre-requirements
 
 ビルドにあたっては以下のコマンド、ツールがセットアップされていることを前提とします
-またセットアップ不要なプログラムがある場合、スクリプトの最初に以下のような質問が表示されるので、y以外を選んでください(インストールがスキップされます)
+またセットアップ不要なプログラムがある場合、スクリプトの最初に以下のような質問が表示されるので、yまたはY**以外**を選んでください(インストールがスキップされます)
 
 ```sh
 Do you want to install MOLCAS? (y/N)
@@ -34,14 +34,15 @@ Do you want to install MOLCAS? (y/N)
     module load DIRAC/21.1
   ```
 
-- MOLCAS
+- MOLCAS(ソースコードとライセンスファイル)
   - license.dat(ライセンスファイル)およびソースコードの圧縮ファイル(e.g. molcas84.tar.gz)がこのREADMEファイル直下の./molcasディレクトリにあることを前提とします
 - Intel(R) Fortran, C, C++ compiler, Math kernel library
   - [Intel(R) Fortran, C, C++ compiler](https://www.intel.com/content/www/us/en/developer/tools/oneapi/toolkits.html)
   - [Intel(R) Math kernel library](https://www.intel.com/content/www/us/en/develop/documentation/get-started-with-mkl-for-dpcpp/top.html)
 
-- UTChem
-  - このREADMEファイル直下の./utchemディレクトリにUTChemのソースコードの圧縮ファイルutchem.2008.8.12.tarがあることを前提とします
+- UTChem(ソースコードとパッチ)
+  - このREADMEファイル直下の./utchemディレクトリにUTChemのソースコードの圧縮ファイルutchem*.tar* (\*は0文字以上の任意の名前)があることを前提とします
+  - ./utchem/patches ディレクトリ下にga_patch, global_patch, makefile.h.patchがあることを前提とします
 
 ## ビルドされるソフトウェア
 
@@ -72,7 +73,7 @@ Do you want to install MOLCAS? (y/N)
 
 
 
-- スクリプトが始まるとUTChem,DIRAC,Molcasについてはインストールをするかどうかをきくようになっているので、yまたはYのあとEnter keyを打つとインストールされます(それ以外はどんな入力が行われてもインストールされません)
+- スクリプトが始まるとUTChem,DIRAC,Molcasについては以下のような質問が表示されるので、yまたはYのあとEnter keyを打つとインストールされます(それ以外はどんな入力が行われてもインストールされません)
 
 ```sh
 Do you want to install DIRAC? (y/N)
