@@ -343,7 +343,7 @@ function setup_python () {
 	export PYENV_ROOT="$INSTALL_PATH/.pyenv"
 	export PATH="$PYENV_ROOT/bin:$PATH"
 	eval "$(pyenv init -)"
-	echo "$PYENV_ROOT , $INSTALL_PATH " >> "$SCRIPT_PATH/python-version.log" 2>&1
+	echo "$PYENV_ROOT , $INSTALL_PATH, skip? : $SKIP_PYENV_INSTALL" >> "$SCRIPT_PATH/python-version.log" 2>&1
 	echo "$PATH" | tr ':' '\n' >> "$SCRIPT_PATH/python-version.log" 2>&1
 	if [ "$SKIP_PYENV_INSTALL" = "N" ]; then
 		echo "export PYENV_ROOT=\"$PYENVROOT/.pyenv\"" >> "$HOME/.bashrc"
@@ -649,11 +649,13 @@ setup_cmake
 mkdir -p  "${GIT}"
 setup_git
 
+if [ "$molcas_install" == "YES" ]; then
+	configure_molcas
+fi
 # Setup python using pyenv
 setup_python
 # Congigure Molcas (interactive)
 if [ "$molcas_install" == "YES" ]; then
-	configure_molcas
 	setup_molcas
 else
 	echo "Skip Molcas installation."
