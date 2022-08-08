@@ -67,13 +67,14 @@ function test_utchem () {
 	tests_count=0
 	for TEST_SCRIPT_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh")
 	do
-		DFT_GEOPT="$(echo "$TEST_SCRIPT_PATH" | grep dft.geopt)"
-		if [ "$DFT_GEOPT" ]; then
-			echo "Skipping test script $TEST_SCRIPT_PATH"
-			continue
-		fi
-		TCE="$(echo "$TEST_SCRIPT_PATH" | grep tce.energy.h2o.sto3g)"
-		if [ "$TCE" ]; then
+		# DFT_GEOPT="$(echo "$TEST_SCRIPT_PATH" | grep dft.geopt)"
+		# if [ "$DFT_GEOPT" ]; then
+		# 	echo "Skipping test script $TEST_SCRIPT_PATH"
+		# 	continue
+		# fi
+		HF="$(echo "$TEST_SCRIPT_PATH" | grep Hartree)"
+		RTDDFT="$(echo "$TEST_SCRIPT_PATH" | grep rtddft)"
+		if [ "$HF" ] || [ "$RTDDFT" ]; then
 			TEST_SCRIPT_DIR="$(dirname "$TEST_SCRIPT_PATH")"
 			cd "$TEST_SCRIPT_DIR"
 			echo "Start Running a test script under: ${TEST_SCRIPT_DIR}"
@@ -88,18 +89,19 @@ function test_utchem () {
 				date
 				OUTPUT="${ii}out"
 				echo "Output file: ${OUTPUT}"
-				echo "../../boot/utchem -n 3 -w ${SCRATCH} $ii >& ${TEST_RESULTS}/$OUTPUT"
+				echo "../../boot/utchem -n ${SETUP_NPROCS} -w ${SCRATCH} $ii >& ${TEST_RESULTS}/$OUTPUT"
 
-				../../boot/utchem -n 3 -w "${SCRATCH} $ii" > "${TEST_RESULTS}/$OUTPUT" 2>&1
+				../../boot/utchem -n "${SETUP_NPROCS}" -w "${SCRATCH} $ii" > "${TEST_RESULTS}/$OUTPUT" 2>&1
 				date
 				echo "End running test script"
 
 				#<< "#COMMENT"
 				tests_count=$(($tests_count+1))
-				reference_output="$TEST_SCRIPT_DIR/$OUTPUT"
+				# a.utout.nproc=1 a.utout.nproc=2 a.utout.nproc=4 => a.utout.nproc=4
+				reference_output=$( ls "$TEST_SCRIPT_DIR/$OUTPUT" | tail -n 1 )
 				result_output="$TEST_SCRIPT_DIR/${TEST_RESULTS}/$OUTPUT"
-				references=($(grep "Total Energy" "$reference_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF " "}'))
-				results=($(grep "Total Energy" "$result_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF "\n"}'))
+				references=($(grep "Total Energy.*=" "$reference_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF " "}'))
+				results=($(grep "Total Energy.*=" "$result_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF " "}'))
 
 				echo "Start checking test results for $reference_output and $result_output..."
 				echo "references: " "${references[@]}"
@@ -132,6 +134,7 @@ function test_utchem () {
 						echo "references = ${references[$i]} Hartree"
 						echo "results = ${results[$i]} Hartree"
 						echo "abs(diff) = ${absdiff} Hartree"
+						failed_test_files+=("$result_output")
 					fi
 				done
 				if [ $all_test_passed = "YES" ] ; then
