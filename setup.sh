@@ -177,6 +177,7 @@ function setup_utchem () {
 	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
 	cp -f "${UTCHEM_TARBALL}" "${UTCHEM}"
 	cp -rf "${UTCHEM_PATCH}" "${UTCHEM}"
+	cp -f "$SCRIPT_PATH/utchem/utchem" "${MODULEFILES}/utchem"
 	PATCHDIR=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
 	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
 
@@ -184,6 +185,7 @@ function setup_utchem () {
 	cd "${UTCHEM}"
 	tar xf "${UTCHEM_TARBALL}"
     UTCHEM_BUILD_DIR=$(find "$UTCHEM" -mindepth 1 -type d -name "utchem*")
+	echo "prepend-path    PATH            ${UTCHEM_BUILD_DIR}/boot" >> "${MODULEFILES}/utchem"
 	GA4="${UTCHEM_BUILD_DIR}/ga4-0-2"
 
 	# File location of Patch files and files to patch
@@ -316,10 +318,11 @@ function setup_dirac () {
 }
 
 function setup_git () {
-	tar -xf "./git/git-${GIT_VERSION}.tar.gz" -C "${GIT}"
+	tar -xf "${SCRIPT_PATH}/git/git-${GIT_VERSION}.tar.gz" -C "${GIT}"
 	# ${GIT} にコピーされたtarballは使わないが、あとからどのtarballを使ってビルドしたか確認しやすくするためにコピーしておく
-	cp -f "./git/git-${GIT_VERSION}.tar.gz" "${GIT}"
-	cp -f "./git/${GIT_VERSION}" "${HOME}/modulefiles/git"
+	cp -f "${SCRIPT_PATH}/git/git-${GIT_VERSION}.tar.gz" "${GIT}"
+	cp -f "${SCRIPT_PATH}/git/.git-completion.bash" "${GIT}"
+	cp -f "${SCRIPT_PATH}/git/${GIT_VERSION}" "${MODULEFILES}/git"
 	cd "${GIT}/git-${GIT_VERSION}"
 	make prefix="${GIT}" -j "$SETUP_NPROCS"  && make prefix="${GIT}" install
 	ret=$?
@@ -327,7 +330,9 @@ function setup_git () {
 		echo "Git build failed."
 		exit $ret
 	fi
-	echo "prepend-path    PATH            ${GIT}/bin" >> "${HOME}/modulefiles/git/${GIT_VERSION}"
+	mkdir -p "${MODULEFILES}/git"
+	echo "prepend-path    PATH            ${GIT}/bin" >> "${MODULEFILES}/git/${GIT_VERSION}"
+	echo "source $HOME/.config/git/.git-completion.bash" >> "${HOME}/.bashrc"
 	module load "git/${GIT_VERSION}" && git --version
     cd "${SCRIPT_PATH}"
 }
@@ -358,21 +363,21 @@ function setup_python () {
 }
 
 function setup_cmake () {
+	mkdir -p "${CMAKE}"
 	# unzip cmake prebuild tarball
-	tar -xf "./cmake/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" -C "${CMAKE}"
+	tar -xf "${SCRIPT_PATH}/cmake/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" -C "${CMAKE}"
 	# ${CMAKE} にコピーされたtarballは使わないが、あとからどのtarballを使ってビルドしたか確認しやすくするためにコピーしておく
-	cp -f "./cmake/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" "${CMAKE}"
-	cp -f "./cmake/${CMAKE_VERSION}" "${HOME}/modulefiles/cmake"
-	echo "prepend-path    PATH    ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/bin" >> "${HOME}/modulefiles/cmake/${CMAKE_VERSION}"
-	echo "prepend-path    MANPATH ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/man" >> "${HOME}/modulefiles/cmake/${CMAKE_VERSION}"
-    module load cmake/${CMAKE_VERSION} && cmake --version
+	cp -f "${SCRIPT_PATH}/cmake/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" "${CMAKE}"
+	cp -f "${SCRIPT_PATH}/cmake/${CMAKE_VERSION}" "${MODULEFILES}/cmake"
+	echo "prepend-path    PATH    ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/bin" >> "${MODULEFILES}/cmake/${CMAKE_VERSION}"
+	echo "prepend-path    MANPATH ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/man" >> "${MODULEFILES}/cmake/${CMAKE_VERSION}"
+    module load "cmake/${CMAKE_VERSION}" && cmake --version
 	cd "${SCRIPT_PATH}"
 }
 
 function build_openmpi() {
 	# openmpi (8-byte integer)
-	cd "${SCRIPT_PATH}"
-	OMPI_TARBALL="./openmpi/openmpi-${OMPI_VERSION}.tar.bz2"
+	OMPI_TARBALL="${SCRIPT_PATH}/openmpi/openmpi-${OMPI_VERSION}.tar.bz2"
 	OMPI_INSTALL_PREFIX="${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}-intel"
 	mkdir -p "${OPENMPI}/${OMPI_VERSION}"
 	tar -xf "${OMPI_TARBALL}" -C "${OPENMPI}/${OMPI_VERSION}"
@@ -606,7 +611,7 @@ set_install_path
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 
 # Software path
-MODULEFILES="${HOME}/modulefiles"
+MODULEFILES="${INSTALL_PATH}/modulefiles"
 CMAKE="${INSTALL_PATH}/cmake"
 OPENMPI="${INSTALL_PATH}/openmpi"
 DIRAC="${INSTALL_PATH}/DIRAC"
@@ -641,9 +646,9 @@ mkdir -p "${MODULEFILES}/cmake"
 # Clean modulefiles
 module purge
 module use --append "${MODULEFILES}"
+echo "module use --append ${MODULEFILES}" >> "$HOME/.bashrc"
 
 # Setup CMake
-mkdir -p "${CMAKE}"
 setup_cmake
 
 # Setup git
