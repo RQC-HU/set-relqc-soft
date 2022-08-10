@@ -73,8 +73,8 @@ function test_utchem () {
 		# 	continue
 		# fi
 		HF="$(echo "$TEST_SCRIPT_PATH" | grep Hartree)"
-		RTDDFT="$(echo "$TEST_SCRIPT_PATH" | grep rtddft)"
-		if [ "$HF" ] || [ "$RTDDFT" ]; then
+		DFT="$(echo "$TEST_SCRIPT_PATH" | grep dft)"
+		if [ "$HF" ] || [ "$DFT" ]; then
 			TEST_SCRIPT_DIR="$(dirname "$TEST_SCRIPT_PATH")"
 			cd "$TEST_SCRIPT_DIR"
 			echo "Start Running a test script under: ${TEST_SCRIPT_DIR}"
@@ -85,7 +85,7 @@ function test_utchem () {
 			do
 				echo
 				echo "=================================================================="
-				echo "Testing..." $ii
+				echo "Testing... $ii"
 				date
 				OUTPUT="${ii}out"
 				echo "Output file: ${OUTPUT}"
@@ -96,7 +96,7 @@ function test_utchem () {
 				echo "End running test script"
 
 				#<< "#COMMENT"
-				tests_count=$(($tests_count+1))
+				tests_count=$(( "$tests_count+1" ))
 				# a.utout.nproc=1 a.utout.nproc=2 a.utout.nproc=4 => a.utout.nproc=4
 				reference_output=$( ls "$TEST_SCRIPT_DIR/$OUTPUT" | tail -n 1 )
 				result_output="$TEST_SCRIPT_DIR/${TEST_RESULTS}/$OUTPUT"
@@ -278,10 +278,10 @@ function setup_dirac () {
 	pyenv global "$PYTHON3_VERSION"
 	DIRAC_SCR="$HOME/dirac_scr"
 	mkdir -p "$DIRAC_SCR"
-	DIRAC_NPROCS=$(( $SETUP_NPROCS / 3 ))
+	DIRAC_NPROCS=$(( "$SETUP_NPROCS" / 3 ))
 	OMPI_VERSION="$OPENMPI3_VERSION" # DIRAC 19.0 and 21.1 use this version of OpenMPI
 	set_ompi_path # set OpenMPI PATH
-	if (( $DIRAC_NPROCS <= 1 )); then # Serial build
+	if (( "$DIRAC_NPROCS" <= 1 )); then # Serial build
 		echo "DIRAC will be built in serial mode."
 		DIRAC_NPROCS=$SETUP_NPROCS
 		# Build DIRAC 19.0
@@ -382,8 +382,8 @@ function build_openmpi() {
 }
 
 function setup_openmpi() {
-	OPENMPI_NPROCS=$(( $SETUP_NPROCS / 2 ))
-	if (( $OPENMPI_NPROCS < 1 )); then
+	OPENMPI_NPROCS=$(( "$SETUP_NPROCS / 2" ))
+	if (( "$OPENMPI_NPROCS < 1" )); then
 		# Serial build
 		echo "CMake will be built in serial mode."
 		# Build OpenMPI 3.1.0 (intel fortran)
@@ -403,16 +403,17 @@ function setup_openmpi() {
 		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log" &
 	fi
 	wait
+	cd "${SCRIPT_PATH}"
 }
 
 function set_process_number () {
 	expr $SETUP_NPROCS / 2 > /dev/null 2>&1 || SETUP_NPROCS=1 # Is $SETUP_NPROCS a number? If not, set it to 1.
 	MAX_NPROCS=$(grep -c  processor /proc/cpuinfo)
-	if (( $SETUP_NPROCS < 0 )); then # invalid number of processes (negative numbers, etc.)
+	if (( "$SETUP_NPROCS" < 0 )); then # invalid number of processes (negative numbers, etc.)
 		echo "invalid number of processes: $SETUP_NPROCS"
 		echo "use default number of processes: 1"
 		SETUP_NPROCS=1
-	elif (( $SETUP_NPROCS > $MAX_NPROCS )); then # number of processes is larger than the number of processors
+	elif (( "$SETUP_NPROCS > $MAX_NPROCS" )); then # number of processes is larger than the number of processors
 		echo "number of processors you want to use: $SETUP_NPROCS"
 		echo "number of processors you can use: $MAX_NPROCS"
 		echo "use max number of processes: $MAX_NPROCS"
@@ -685,7 +686,7 @@ fi
 
 echo "Build end"
 function shutdown() {
-    ps -o pid,cmd --tty $(tty) | tail -n +2 | while read -ra line; do
+    ps -o pid,cmd --tty "$(tty)" | tail -n +2 | while read -ra line; do
         if [[ ${line[1]} == *sleep* ]]; then
             kill "${line[0]}"
         fi
