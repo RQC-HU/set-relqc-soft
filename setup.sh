@@ -183,8 +183,8 @@ function setup_utchem () {
 
 	# Unzip utchem.tar file
 	cd "${UTCHEM}"
-	tar xf "${UTCHEM_TARBALL}"
-    UTCHEM_BUILD_DIR=$(find "$UTCHEM" -mindepth 1 -type d -name "utchem*")
+	tar xf "${UTCHEM_TARBALL}" -C "${UTCHEM}/utchem" --strip-components 1
+    UTCHEM_BUILD_DIR="${UTCHEM}/utchem"
 	echo "prepend-path    PATH            ${UTCHEM_BUILD_DIR}/boot" >> "${MODULEFILES}/utchem"
 	GA4="${UTCHEM_BUILD_DIR}/ga4-0-2"
 
@@ -256,6 +256,12 @@ function build_dirac () {
 	cd build
 	# Build DIRAC
 	make -j "$DIRAC_NPROCS" && make install
+	# Setup Module
+	DIRAC_MODULE_DIR="${MODULEFILES}/dirac"
+	mkdir -p "${DIRAC_MODULE_DIR}"
+	cp -f "${DIRAC_BASEDIR}/${DIRAC_VERSION}" "${DIRAC_MODULE_DIR}/dirac"
+	echo "module load openmpi/${OMPI_VERSION}-intel" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
+	echo "prepend-path  PATH	${DIRAC_BASEDIR}/share/dirac" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
 	# Serial test
 	TEST_TYPE="serial"
 	TEST_NPROCS=1
@@ -364,6 +370,7 @@ function setup_python () {
 
 function setup_cmake () {
 	mkdir -p "${CMAKE}"
+	mkdir -p "${MODULEFILES}/cmake"
 	# unzip cmake prebuild tarball
 	tar -xf "${SCRIPT_PATH}/cmake/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" -C "${CMAKE}"
 	# ${CMAKE} にコピーされたtarballは使わないが、あとからどのtarballを使ってビルドしたか確認しやすくするためにコピーしておく
@@ -378,12 +385,14 @@ function setup_cmake () {
 function build_openmpi() {
 	# openmpi (8-byte integer)
 	OMPI_TARBALL="${SCRIPT_PATH}/openmpi/openmpi-${OMPI_VERSION}.tar.bz2"
-	OMPI_INSTALL_PREFIX="${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}-intel"
-	mkdir -p "${OPENMPI}/${OMPI_VERSION}"
-	tar -xf "${OMPI_TARBALL}" -C "${OPENMPI}/${OMPI_VERSION}"
+	OMPI_INSTALL_PREFIX="${OPENMPI}/${OMPI_VERSION}-intel"
+	mkdir -p "${OPENMPI}/${OMPI_VERSION}-intel"
+	tar -xf "${OMPI_TARBALL}" -C "${OPENMPI}/${OMPI_VERSION}-intel"
 	cd "${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}"
 	./configure CC=icc CXX=icpc FC=ifort FCFLAGS=-i8  CFLAGS=-m64  CXXFLAGS=-m64 --enable-mpi-cxx --enable-mpi-fortran=usempi --prefix="${OMPI_INSTALL_PREFIX}"
 	make -j "$OPENMPI_NPROCS" && make install && make check
+	echo "prepend-path	PATH			${OMPI_INSTALL_PREFIX}/bin" >> "${MODULEFILES}/openmpi/${OMPI_VERSION}-intel"
+	echo "prepend-path	LD_LIBRARY_PATH	${OMPI_INSTALL_PREFIX}/lib"	>> "${MODULEFILES}/openmpi/${OMPI_VERSION}-intel"
 }
 
 function setup_openmpi() {
@@ -529,7 +538,7 @@ function whether_install_or_not() {
     case $yn in
         [Yy]* ) ANS="YES"; break;;
         [Nn]* ) ANS="NO"; break;;
-        * ) ANS="YES"; break;;
+        * ) ANS="NO"; break;;
     esac
     done
     echo $ANS
@@ -579,6 +588,24 @@ function set_install_path () {
 	fi
 }
 
+function is_enviroment_modules_installed(){
+	if type module > /dev/null; then
+		echo "Enviroment modules is installed"
+		echo "You can use module command to load the modules under $MODULEFILES in your bashrc file."
+		echo "(e.g. module use --append ${MODULEFILES})"
+		ENV_MODULE_IS_SET="YES"
+	else
+		echo "Enviroment modules is not installed"
+		echo "After Enviroment modules is installed, you can use module command (c.f. http://modules.sourceforge.net/)"
+		echo "You need to load the modules under $MODULEFILES in your bashrc file to use the modules configured in this script."
+		echo "(e.g. module use --append ${MODULEFILES})"
+		ENV_MODULE_IS_SET="NO"
+	fi
+	echo "ENV_MODULE_IS_SET: $ENV_MODULE_IS_SET"
+}
+
+## Main ##
+
 # Unset all aliases
 \unalias -a
 
@@ -601,6 +628,8 @@ if [ -z "$MKLROOT" ]; then
 	exit 1
 fi
 
+is_enviroment_modules_installed
+
 # Set the number of process
 set_process_number
 
@@ -613,7 +642,7 @@ SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 # Software path
 MODULEFILES="${INSTALL_PATH}/modulefiles"
 CMAKE="${INSTALL_PATH}/cmake"
-OPENMPI="${INSTALL_PATH}/openmpi"
+OPENMPI="${INSTALL_PATH}/openmpi-intel"
 DIRAC="${INSTALL_PATH}/DIRAC"
 MOLCAS="${INSTALL_PATH}/molcas"
 UTCHEM="${INSTALL_PATH}/utchem"
@@ -639,20 +668,19 @@ check_install_programs
 # Check files and directories
 check_files_and_dirs
 
-# Create directories for Environment modules
-mkdir -p "${MODULEFILES}/git"
-mkdir -p "${MODULEFILES}/cmake"
-
 # Clean modulefiles
-module purge
-module use --append "${MODULEFILES}"
-echo "module use --append ${MODULEFILES}" >> "$HOME/.bashrc"
+if [ "${ENV_MODULE_IS_SET}" = "YES" ]; then
+	echo "Cleaning modulefiles"
+	module purge
+	module use --append "${MODULEFILES}"
+	echo "module use --append ${MODULEFILES}" >> "$HOME/.bashrc"
+fi
+
 
 # Setup CMake
 setup_cmake
 
 # Setup git
-mkdir -p  "${GIT}"
 setup_git
 
 if [ "$molcas_install" == "YES" ]; then
