@@ -1,0 +1,12 @@
+#%Module 1.0
+#
+# dirac 22.0
+#
+
+proc ModulesHelp { } {
+  puts stderr "dirac 22.0"
+}
+module-whatis "dirac 22.0"
+conflict dirac
+
+# ----

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 function setup_molcas () {
+	echo "Start setup molcas..."
 	cd "$MOLCAS/$MOLCAS_TARBALL_NO_EXTENSION"
 
 	# Build MOLCAS
@@ -73,7 +74,7 @@ function test_utchem () {
 		# 	continue
 		# fi
 		HF="$(echo "$TEST_SCRIPT_PATH" | grep Hartree)"
-		DFT="$(echo "$TEST_SCRIPT_PATH" | grep dft)"
+		DFT="$(echo "$TEST_SCRIPT_PATH" | grep rtddft)"
 		if [ "$HF" ] || [ "$DFT" ]; then
 			TEST_SCRIPT_DIR="$(dirname "$TEST_SCRIPT_PATH")"
 			cd "$TEST_SCRIPT_DIR"
@@ -96,7 +97,7 @@ function test_utchem () {
 				echo "End running test script"
 
 				#<< "#COMMENT"
-				tests_count=$(( "$tests_count+1" ))
+				tests_count=$(( $tests_count+1 ))
 				# a.utout.nproc=1 a.utout.nproc=2 a.utout.nproc=4 => a.utout.nproc=4
 				reference_output=$( ls "$TEST_SCRIPT_DIR/$OUTPUT" | tail -n 1 )
 				result_output="$TEST_SCRIPT_DIR/${TEST_RESULTS}/$OUTPUT"
@@ -170,6 +171,7 @@ function test_utchem () {
 }
 
 function setup_utchem () {
+	echo "Start setup UTChem..."
 	OMPI_VERSION="$OPENMPI4_VERSION"
 	set_ompi_path # set OpenMPI PATH
 
@@ -177,15 +179,13 @@ function setup_utchem () {
 	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
 	cp -f "${UTCHEM_TARBALL}" "${UTCHEM}"
 	cp -rf "${UTCHEM_PATCH}" "${UTCHEM}"
-	cp -f "$SCRIPT_PATH/utchem/utchem" "${MODULEFILES}/utchem"
 	PATCHDIR=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
-	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
 
 	# Unzip utchem.tar file
 	cd "${UTCHEM}"
-	tar xf "${UTCHEM_TARBALL}" -C "${UTCHEM}/utchem" --strip-components 1
+	mkdir -p "${UTCHEM}/utchem"
+	tar -xf "${UTCHEM_TARBALL}" -C "${UTCHEM}/utchem" --strip-components 1
     UTCHEM_BUILD_DIR="${UTCHEM}/utchem"
-	echo "prepend-path    PATH            ${UTCHEM_BUILD_DIR}/boot" >> "${MODULEFILES}/utchem"
 	GA4="${UTCHEM_BUILD_DIR}/ga4-0-2"
 
 	# File location of Patch files and files to patch
@@ -225,6 +225,10 @@ function setup_utchem () {
 	# Run test script
 	test_utchem 2>&1 | tee "$SCRIPT_PATH/utchem-test.log"
 	cd "$SCRIPT_PATH"
+
+	# Setup modulefiles
+	cp -f "$SCRIPT_PATH/utchem/utchem" "${MODULEFILES}"
+	echo "prepend-path  PATH	${UTCHEM_BUILD_DIR}/boot" >> "${MODULEFILES}/utchem"
 }
 
 function run_dirac_testing () {
@@ -256,12 +260,6 @@ function build_dirac () {
 	cd build
 	# Build DIRAC
 	make -j "$DIRAC_NPROCS" && make install
-	# Setup Module
-	DIRAC_MODULE_DIR="${MODULEFILES}/dirac"
-	mkdir -p "${DIRAC_MODULE_DIR}"
-	cp -f "${DIRAC_BASEDIR}/${DIRAC_VERSION}" "${DIRAC_MODULE_DIR}/dirac"
-	echo "module load openmpi/${OMPI_VERSION}-intel" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
-	echo "prepend-path  PATH	${DIRAC_BASEDIR}/share/dirac" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
 	# Serial test
 	TEST_TYPE="serial"
 	TEST_NPROCS=1
@@ -272,13 +270,19 @@ function build_dirac () {
 	TEST_NPROCS=${DIRAC_NPROCS}
     mkdir -p "$DIRAC_BASEDIR"/test_results/parallel
 	run_dirac_testing
+	# Setup modulefiles
+	DIRAC_MODULE_DIR="${MODULEFILES}/dirac"
+	mkdir -p "${DIRAC_MODULE_DIR}"
+	cp -f "${DIRAC_BASEDIR}/${DIRAC_VERSION}" "${DIRAC_MODULE_DIR}"
+	echo "module load openmpi/${OMPI_VERSION}-intel" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
+	echo "prepend-path  PATH	${DIRAC_BASEDIR}/share/dirac" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
 	cd "$SCRIPT_PATH"
 }
 
 function set_ompi_path () {
-	PATH="${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}-intel/bin:$PATH"
-	LIBRARY_PATH="${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}-intel/lib:$LIBRARY_PATH"
-	LD_LIBRARY_PATH="${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}-intel/lib:$LD_LIBRARY_PATH"
+	PATH="${OPENMPI}/${OMPI_VERSION}-intel/bin:$PATH"
+	LIBRARY_PATH="${OPENMPI}/${OMPI_VERSION}-intel/lib:$LIBRARY_PATH"
+	LD_LIBRARY_PATH="${OPENMPI}/${OMPI_VERSION}-intel/lib:$LD_LIBRARY_PATH"
 }
 
 function setup_dirac () {
@@ -286,7 +290,7 @@ function setup_dirac () {
 	pyenv global "$PYTHON3_VERSION"
 	DIRAC_SCR="$HOME/dirac_scr"
 	mkdir -p "$DIRAC_SCR"
-	DIRAC_NPROCS=$(( "$SETUP_NPROCS" / 3 ))
+	DIRAC_NPROCS=$(( $SETUP_NPROCS / 3 ))
 	OMPI_VERSION="$OPENMPI3_VERSION" # DIRAC 19.0 and 21.1 use this version of OpenMPI
 	set_ompi_path # set OpenMPI PATH
 	if (( "$DIRAC_NPROCS" <= 1 )); then # Serial build
@@ -324,11 +328,12 @@ function setup_dirac () {
 }
 
 function setup_git () {
+	echo "Start git setup..."
+	mkdir -p "${GIT}"
 	tar -xf "${SCRIPT_PATH}/git/git-${GIT_VERSION}.tar.gz" -C "${GIT}"
 	# ${GIT} にコピーされたtarballは使わないが、あとからどのtarballを使ってビルドしたか確認しやすくするためにコピーしておく
 	cp -f "${SCRIPT_PATH}/git/git-${GIT_VERSION}.tar.gz" "${GIT}"
 	cp -f "${SCRIPT_PATH}/git/.git-completion.bash" "${GIT}"
-	cp -f "${SCRIPT_PATH}/git/${GIT_VERSION}" "${MODULEFILES}/git"
 	cd "${GIT}/git-${GIT_VERSION}"
 	make prefix="${GIT}" -j "$SETUP_NPROCS"  && make prefix="${GIT}" install
 	ret=$?
@@ -337,13 +342,16 @@ function setup_git () {
 		exit $ret
 	fi
 	mkdir -p "${MODULEFILES}/git"
+	cp -f "${SCRIPT_PATH}/git/${GIT_VERSION}" "${MODULEFILES}/git/${GIT_VERSION}"
 	echo "prepend-path    PATH            ${GIT}/bin" >> "${MODULEFILES}/git/${GIT_VERSION}"
 	echo "source $HOME/.config/git/.git-completion.bash" >> "${HOME}/.bashrc"
-	module load "git/${GIT_VERSION}" && git --version
+	export PATH="${GIT}/bin:$PATH"
+	git --version
     cd "${SCRIPT_PATH}"
 }
 
 function setup_python () {
+	echo "Start python setup..."
 	PYENVROOT="$INSTALL_PATH/.pyenv"
 	SKIP_PYENV_INSTALL="Y"
 	# if PYENVROOT exists, skip clone
@@ -354,8 +362,7 @@ function setup_python () {
 	export PYENV_ROOT="$INSTALL_PATH/.pyenv"
 	export PATH="$PYENV_ROOT/bin:$PATH"
 	eval "$(pyenv init -)"
-	echo "$PYENV_ROOT , $INSTALL_PATH, skip? : $SKIP_PYENV_INSTALL" >> "$SCRIPT_PATH/python-version.log" 2>&1
-	echo "$PATH" | tr ':' '\n' >> "$SCRIPT_PATH/python-version.log" 2>&1
+	echo "$PYENV_ROOT , $INSTALL_PATH, skip? : $SKIP_PYENV_INSTALL" > "$SCRIPT_PATH/python-version.log" 2>&1
 	if [ "$SKIP_PYENV_INSTALL" = "N" ]; then
 		echo "export PYENV_ROOT=\"$PYENVROOT/.pyenv\"" >> "$HOME/.bashrc"
 		echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >> "$HOME/.bashrc"
@@ -365,10 +372,10 @@ function setup_python () {
 	fi
 	pyenv global "$PYTHON2_VERSION"
 	python -V >> "$SCRIPT_PATH/python-version.log" 2>&1
-
 }
 
 function setup_cmake () {
+	echo "Start cmake setup..."
 	mkdir -p "${CMAKE}"
 	mkdir -p "${MODULEFILES}/cmake"
 	# unzip cmake prebuild tarball
@@ -378,25 +385,30 @@ function setup_cmake () {
 	cp -f "${SCRIPT_PATH}/cmake/${CMAKE_VERSION}" "${MODULEFILES}/cmake"
 	echo "prepend-path    PATH    ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/bin" >> "${MODULEFILES}/cmake/${CMAKE_VERSION}"
 	echo "prepend-path    MANPATH ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/man" >> "${MODULEFILES}/cmake/${CMAKE_VERSION}"
-    module load "cmake/${CMAKE_VERSION}" && cmake --version
+    # module load "cmake/${CMAKE_VERSION}" && cmake --version
+	PATH=${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/bin:$PATH
+	MANPATH=${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/man:$MANPATH
 	cd "${SCRIPT_PATH}"
 }
 
 function build_openmpi() {
+	echo "Start openmpi${OMPI_VERSION} setup..."
 	# openmpi (8-byte integer)
 	OMPI_TARBALL="${SCRIPT_PATH}/openmpi/openmpi-${OMPI_VERSION}.tar.bz2"
 	OMPI_INSTALL_PREFIX="${OPENMPI}/${OMPI_VERSION}-intel"
-	mkdir -p "${OPENMPI}/${OMPI_VERSION}-intel"
-	tar -xf "${OMPI_TARBALL}" -C "${OPENMPI}/${OMPI_VERSION}-intel"
-	cd "${OPENMPI}/${OMPI_VERSION}/openmpi-${OMPI_VERSION}"
+	mkdir -p "${OPENMPI}/${OMPI_VERSION}-intel/build"
+	tar -xf "${OMPI_TARBALL}" -C "${OPENMPI}/${OMPI_VERSION}-intel/build" --strip-components 1
+	cd "${OPENMPI}/${OMPI_VERSION}-intel/build"
 	./configure CC=icc CXX=icpc FC=ifort FCFLAGS=-i8  CFLAGS=-m64  CXXFLAGS=-m64 --enable-mpi-cxx --enable-mpi-fortran=usempi --prefix="${OMPI_INSTALL_PREFIX}"
 	make -j "$OPENMPI_NPROCS" && make install && make check
+	mkdir -p "${MODULEFILES}/openmpi"
+	cp -f "${SCRATCH_PATH}/openmpi/${OMPI_VERSION}-intel" "${MODULEFILES}/openmpi"
 	echo "prepend-path	PATH			${OMPI_INSTALL_PREFIX}/bin" >> "${MODULEFILES}/openmpi/${OMPI_VERSION}-intel"
 	echo "prepend-path	LD_LIBRARY_PATH	${OMPI_INSTALL_PREFIX}/lib"	>> "${MODULEFILES}/openmpi/${OMPI_VERSION}-intel"
 }
 
 function setup_openmpi() {
-	OPENMPI_NPROCS=$(( "$SETUP_NPROCS / 2" ))
+	OPENMPI_NPROCS=$(( $SETUP_NPROCS / 2 ))
 	if (( "$OPENMPI_NPROCS < 1" )); then
 		# Serial build
 		echo "CMake will be built in serial mode."
@@ -443,7 +455,7 @@ function check_molcas_files () {
 	# Check if the license file and tarball exist
 	if [ -z "${MOLCAS_LICENSE}" ]; then
 		echo "ERROR: MOLCAS License file not found."
-		echo "Please check the file name (Searched for 'license' in the '$SCRIPT_PATH/molcas' directory). Exiting."
+		echo "Please check the file name (Searched for 'license*' in the '$SCRIPT_PATH/molcas' directory). Exiting."
 		exit 1
 	fi
 	if [ -z "${MOLCAS_TARBALL}" ]; then
@@ -501,7 +513,6 @@ function check_files_and_dirs () {
 	fi
 	if [ "$dirac_install" == "YES" ]; then
 		mkdir -p "${DIRAC}"
-		mkdir -p "${MODULEFILES}/dirac"
 	fi
 	if [ "$utchem_install" == "YES" ]; then
 		mkdir -p "${UTCHEM}"
@@ -510,25 +521,26 @@ function check_files_and_dirs () {
 }
 
 function check_install_programs () {
-	INSTALL_PROGRAMS=("git" "CMake")
+	INSTALL_PROGRAMS=("git (https://git-scm.com/)" "CMake (https://cmake.org/)")
 	if [ "$molcas_install" == "YES" ]; then
-		INSTALL_PROGRAMS+=("Molcas")
+		INSTALL_PROGRAMS+=("Molcas (https://molcas.org/)")
 	fi
 	if [ "$dirac_install" == "YES" ]; then
-		INSTALL_PROGRAMS+=("DIRAC")
+		INSTALL_PROGRAMS+=("DIRAC (http://diracprogram.org/)")
 	fi
 	if [ "$utchem_install" == "YES" ]; then
-		INSTALL_PROGRAMS+=("UTChem")
+		INSTALL_PROGRAMS+=("UTChem (http://ccl.scc.kyushu-u.ac.jp/~nakano/papers/lncs-2660-84.pdf)")
 	fi
 	if [ "$utchem_install" == "YES" ] || [ "$dirac_install" == "YES" ]; then
-		INSTALL_PROGRAMS+=("OpenMPI")
+		INSTALL_PROGRAMS+=("OpenMPI (https://www.open-mpi.org/)")
 	fi
 
 	echo "The following programs will be installed:"
 	for PROGRAM in "${INSTALL_PROGRAMS[@]}"
 	do
-		echo "$PROGRAM"
+		echo "$PROGRAM" | tee -a "${SCRIPT_PATH}/install-programs.log"
 	done
+	echo ""
 }
 
 function whether_install_or_not() {
@@ -589,19 +601,21 @@ function set_install_path () {
 }
 
 function is_enviroment_modules_installed(){
+	echo "Checking if the environment modules is already installed..."
+	mkdir -p "${MODULEFILES}"
 	if type module > /dev/null; then
 		echo "Enviroment modules is installed"
 		echo "You can use module command to load the modules under $MODULEFILES in your bashrc file."
 		echo "(e.g. module use --append ${MODULEFILES})"
-		ENV_MODULE_IS_SET="YES"
+		module use --append "${MODULEFILES}"
+		echo "module use --append ${MODULEFILES}" >> "$HOME/.bashrc"
+		echo "Info: Add the modulefiles to your bashrc file. (module use --append ${MODULEFILES})"
 	else
 		echo "Enviroment modules is not installed"
 		echo "After Enviroment modules is installed, you can use module command (c.f. http://modules.sourceforge.net/)"
 		echo "You need to load the modules under $MODULEFILES in your bashrc file to use the modules configured in this script."
 		echo "(e.g. module use --append ${MODULEFILES})"
-		ENV_MODULE_IS_SET="NO"
 	fi
-	echo "ENV_MODULE_IS_SET: $ENV_MODULE_IS_SET"
 }
 
 ## Main ##
@@ -628,8 +642,6 @@ if [ -z "$MKLROOT" ]; then
 	exit 1
 fi
 
-is_enviroment_modules_installed
-
 # Set the number of process
 set_process_number
 
@@ -643,7 +655,7 @@ SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 MODULEFILES="${INSTALL_PATH}/modulefiles"
 CMAKE="${INSTALL_PATH}/cmake"
 OPENMPI="${INSTALL_PATH}/openmpi-intel"
-DIRAC="${INSTALL_PATH}/DIRAC"
+DIRAC="${INSTALL_PATH}/dirac"
 MOLCAS="${INSTALL_PATH}/molcas"
 UTCHEM="${INSTALL_PATH}/utchem"
 GIT="${INSTALL_PATH}/git"
@@ -665,17 +677,16 @@ PROGRAM_NAME="UTCHEM"
 utchem_install=$(whether_install_or_not)
 check_install_programs
 
+# Check whether the environment modules (http://modules.sourceforge.net/) is already installed
+is_enviroment_modules_installed
+
 # Check files and directories
 check_files_and_dirs
 
-# Clean modulefiles
-if [ "${ENV_MODULE_IS_SET}" = "YES" ]; then
-	echo "Cleaning modulefiles"
-	module purge
-	module use --append "${MODULEFILES}"
-	echo "module use --append ${MODULEFILES}" >> "$HOME/.bashrc"
+# Congigure Molcas (interactive)
+if [ "$molcas_install" == "YES" ]; then
+	configure_molcas
 fi
-
 
 # Setup CMake
 setup_cmake
@@ -683,23 +694,21 @@ setup_cmake
 # Setup git
 setup_git
 
-if [ "$molcas_install" == "YES" ]; then
-	configure_molcas
-fi
 # Setup python using pyenv
 setup_python
-# Congigure Molcas (interactive)
-if [ "$molcas_install" == "YES" ]; then
-	setup_molcas
-else
-	echo "Skip Molcas installation."
-fi
 
 if [ "$utchem_install" == "YES" ] || [ "$dirac_install" == "YES" ]; then
 	# Build OpenMPI (intel fortran, You need to build this to build DIRAC or UTCHEM)
 	setup_openmpi
 else
 	echo "Skip OpenMPI installation."
+fi
+
+# Build Molcas
+if [ "$molcas_install" == "YES" ]; then
+	setup_molcas
+else
+	echo "Skip Molcas installation."
 fi
 
 # Setup utchem
