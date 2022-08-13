@@ -364,7 +364,7 @@ function setup_python () {
 	eval "$(pyenv init -)"
 	echo "$PYENV_ROOT , $INSTALL_PATH, skip? : $SKIP_PYENV_INSTALL" > "$SCRIPT_PATH/python-version.log" 2>&1
 	if [ "$SKIP_PYENV_INSTALL" = "N" ]; then
-		echo "export PYENV_ROOT=\"$PYENVROOT/.pyenv\"" >> "$HOME/.bashrc"
+		echo "export PYENV_ROOT=\"$PYENVROOT\"" >> "$HOME/.bashrc"
 		echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >> "$HOME/.bashrc"
 		echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
 		pyenv install "$PYTHON2_VERSION"
