@@ -217,7 +217,7 @@ function setup_utchem () {
 	#   ./configure --python=/home/users/username/python
 	cd "${UTCHEM_BUILD_DIR}"
 	UTCHEM_MPI="$(dirname "$( which mpif77 | xargs dirname )")"
-	./configure --mpi="$UTCHEM_MPI" --python=python 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
+	./configure --mpi="$UTCHEM_MPI" --python=python2 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
 
 	# Make utchem (${UTCHEM_BUILD_DIR}/boot/utchem is executable file)
 	make 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
