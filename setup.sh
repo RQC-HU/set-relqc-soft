@@ -402,7 +402,7 @@ function build_openmpi() {
 	./configure CC=icc CXX=icpc FC=ifort FCFLAGS=-i8  CFLAGS=-m64  CXXFLAGS=-m64 --enable-mpi-cxx --enable-mpi-fortran=usempi --prefix="${OMPI_INSTALL_PREFIX}"
 	make -j "$OPENMPI_NPROCS" && make install && make check
 	mkdir -p "${MODULEFILES}/openmpi"
-	cp -f "${SCRATCH_PATH}/openmpi/${OMPI_VERSION}-intel" "${MODULEFILES}/openmpi"
+	cp -f "${SCRIPT_PATH}/openmpi/${OMPI_VERSION}-intel" "${MODULEFILES}/openmpi"
 	echo "prepend-path	PATH			${OMPI_INSTALL_PREFIX}/bin" >> "${MODULEFILES}/openmpi/${OMPI_VERSION}-intel"
 	echo "prepend-path	LD_LIBRARY_PATH	${OMPI_INSTALL_PREFIX}/lib"	>> "${MODULEFILES}/openmpi/${OMPI_VERSION}-intel"
 }
