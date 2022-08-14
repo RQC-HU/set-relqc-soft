@@ -222,13 +222,14 @@ function setup_utchem () {
 	# Make utchem (${UTCHEM_BUILD_DIR}/boot/utchem is executable file)
 	make 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
 
+	# Setup modulefiles
+	cp -f "$SCRIPT_PATH/utchem/utchem" "${MODULEFILES}"
+	echo "prepend-path  PATH	${UTCHEM_BUILD_DIR}/boot" >> "${MODULEFILES}/utchem"
+
 	# Run test script
 	test_utchem 2>&1 | tee "$SCRIPT_PATH/utchem-test.log"
 	cd "$SCRIPT_PATH"
 
-	# Setup modulefiles
-	cp -f "$SCRIPT_PATH/utchem/utchem" "${MODULEFILES}"
-	echo "prepend-path  PATH	${UTCHEM_BUILD_DIR}/boot" >> "${MODULEFILES}/utchem"
 }
 
 function run_dirac_testing () {
@@ -260,6 +261,12 @@ function build_dirac () {
 	cd build
 	# Build DIRAC
 	make -j "$DIRAC_NPROCS" && make install
+	# Setup modulefiles
+	DIRAC_MODULE_DIR="${MODULEFILES}/dirac"
+	mkdir -p "${DIRAC_MODULE_DIR}"
+	cp -f "${DIRAC_BASEDIR}/${DIRAC_VERSION}" "${DIRAC_MODULE_DIR}"
+	echo "module load openmpi/${OMPI_VERSION}-intel" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
+	echo "prepend-path  PATH	${DIRAC_BASEDIR}/share/dirac" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
 	# Serial test
 	TEST_TYPE="serial"
 	TEST_NPROCS=1
@@ -270,12 +277,6 @@ function build_dirac () {
 	TEST_NPROCS=${DIRAC_NPROCS}
     mkdir -p "$DIRAC_BASEDIR"/test_results/parallel
 	run_dirac_testing
-	# Setup modulefiles
-	DIRAC_MODULE_DIR="${MODULEFILES}/dirac"
-	mkdir -p "${DIRAC_MODULE_DIR}"
-	cp -f "${DIRAC_BASEDIR}/${DIRAC_VERSION}" "${DIRAC_MODULE_DIR}"
-	echo "module load openmpi/${OMPI_VERSION}-intel" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
-	echo "prepend-path  PATH	${DIRAC_BASEDIR}/share/dirac" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
 	cd "$SCRIPT_PATH"
 }
 
