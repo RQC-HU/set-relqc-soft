@@ -58,6 +58,11 @@ function configure_molcas () {
 		echo "Please check the log file '$SCRIPT_PATH/molcas-setup.log' for more information."
 		exit 1
 	fi
+
+	# Setup modulefiles
+	cp -f "$SCRIPT_PATH/molcas/molcas" "${MODULEFILES}"
+	echo "prepend-path  PATH	${HOME}/bin" >> "${MODULEFILES}/utchem"
+
 	cd "$SCRIPT_PATH"
 }
 

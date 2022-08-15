@@ -1,0 +1,11 @@
+#%Module 1.0
+#
+# molcas
+#
+
+proc ModulesHelp { } {
+  puts stderr "molcas"
+}
+module-whatis "molcas"
+
+# ----
