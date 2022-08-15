@@ -11,6 +11,10 @@
 Do you want to install MOLCAS? (y/N)
 ```
 
+- Intel(R) Fortran, C, C++ compiler, Math kernel library
+  - [Intel(R) Fortran, C, C++ compiler](https://www.intel.com/content/www/us/en/developer/tools/oneapi/toolkits.html)
+  - [Intel(R) Math kernel library](https://www.intel.com/content/www/us/en/develop/documentation/get-started-with-mkl-for-dpcpp/top.html)
+
 - インターネットアクセス
   - いくつかのツールはインターネットアクセスを必要とするため、セットアップを行うサーバからインターネットへのアクセスが可能である必要があります
 
@@ -36,9 +40,6 @@ Do you want to install MOLCAS? (y/N)
 
 - MOLCAS(ソースコードとライセンスファイル)
   - license.dat(ライセンスファイル)およびソースコードの圧縮ファイル(e.g. molcas84.tar.gz)がこのREADMEファイル直下の./molcasディレクトリにあることを前提とします
-- Intel(R) Fortran, C, C++ compiler, Math kernel library
-  - [Intel(R) Fortran, C, C++ compiler](https://www.intel.com/content/www/us/en/developer/tools/oneapi/toolkits.html)
-  - [Intel(R) Math kernel library](https://www.intel.com/content/www/us/en/develop/documentation/get-started-with-mkl-for-dpcpp/top.html)
 
 - UTChem(ソースコードとパッチ)
   - このREADMEファイル直下の./utchemディレクトリにUTChemのソースコードの圧縮ファイルutchem*.tar* (\*は0文字以上の任意の名前)があることを前提とします
@@ -87,11 +88,6 @@ molcas verify --parallel 3
 
 - コマンドについての詳細は molcas verify --help を参照してください
 
-### UTChemのテスト
-
-- スクリプト内でtests/TCEを含むディレクトリはテストをしていますが、自動的にテストをやったうえで評価してくれる仕組みはUTChemには備わっていません
-- 従って適当なテストを使って確認をするなどしてください
-
 ### インストール時に存在しているディレクトリ上にソフトウェアをインストールしたい場合
 
   上書きされる可能性があることを承知した上で、すでに存在するディレクトリをINSTALL_PATHに指定したい場合は環境変数OVERWRITEをYESに設定してください
@@ -100,7 +96,7 @@ molcas verify --parallel 3
   OVERWRITE=YES INSTALL_PATH=$HOME/softwares SETUP_NPROCS=12 sh setup.sh
   ```
 
-  OVERWRITEをYESにした場合スクリプトのはじめに以下のような質問が出るので、上書きのことについて理解して了承している場合yを選択してください
+  OVERWRITEをYESにした場合スクリプトのはじめに以下のような質問が出るので、上書きされる可能性について理解して了承している場合yを選択してください
 
   ```sh
   Warning: OVERWRITE option selected YES.  may overwrite the existing path! /path/to/install.
