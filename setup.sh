@@ -440,7 +440,7 @@ function setup_openmpi() {
 
 function set_process_number () {
 	expr $SETUP_NPROCS / 2 > /dev/null 2>&1 || SETUP_NPROCS=1 # Is $SETUP_NPROCS a number? If not, set it to 1.
-	MAX_NPROCS=$(grep -c  processor /proc/cpuinfo)
+	MAX_NPROCS=$( lscpu | grep "^CPU(s)" | awk '{print $2}' ) # Get the number of CPUs.
 	if (( "$SETUP_NPROCS" < 0 )); then # invalid number of processes (negative numbers, etc.)
 		echo "invalid number of processes: $SETUP_NPROCS"
 		echo "use default number of processes: 1"
