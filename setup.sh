@@ -30,7 +30,6 @@ function check_one_file_only () {
 
 function configure_molcas () {
 	echo "Starting Molcas interactive setup"
-
 	# Find the directory for the MOLCAS installation
 	# (e.g. molcas84.tar.gz -> molcas84)
 	MOLCAS_LICENSE=$(find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "license*")
@@ -444,7 +443,7 @@ function setup_openmpi() {
 
 function set_process_number () {
 	expr $SETUP_NPROCS / 2 > /dev/null 2>&1 || SETUP_NPROCS=1 # Is $SETUP_NPROCS a number? If not, set it to 1.
-	MAX_NPROCS=$( lscpu | grep "^CPU(s)" | awk '{print $2}' ) # Get the number of CPUs.
+	MAX_NPROCS=$( cpuinfo  | grep "Processors(CPUs)" | awk '{print $3}' ) # Get the number of CPUs.
 	if (( "$SETUP_NPROCS" < 0 )); then # invalid number of processes (negative numbers, etc.)
 		echo "invalid number of processes: $SETUP_NPROCS"
 		echo "use default number of processes: 1"
@@ -514,34 +513,65 @@ function check_utchem_files () {
 }
 
 function check_files_and_dirs () {
-	if [ "$molcas_install" == "YES" ]; then
+	if [ "$INSTALL_UTCHEM" == "YES" ] || [ "$INSTALL_DIRAC" == "YES" ]; then
+		mkdir -p "${OPENMPI}"
+	fi
+	if [ "$INSTALL_MOLCAS" == "YES" ]; then
 		mkdir -p "${MOLCAS}"
 		check_molcas_files
 	fi
-	if [ "$utchem_install" == "YES" ] || [ "$dirac_install" == "YES" ]; then
-		mkdir -p "${OPENMPI}"
-	fi
-	if [ "$dirac_install" == "YES" ]; then
+	if [ "$INSTALL_DIRAC" == "YES" ]; then
 		mkdir -p "${DIRAC}"
 	fi
-	if [ "$utchem_install" == "YES" ]; then
+	if [ "$INSTALL_UTCHEM" == "YES" ]; then
 		mkdir -p "${UTCHEM}"
 		check_utchem_files
 	fi
 }
 
 function check_install_programs () {
+	if [ -z "${INSTALL_ALL:-}" ]; then
+		INSTALL_ALL="NO"
+	fi
+	if [ "${INSTALL_ALL}" == "YES" ]; then
+		INSTALL_DIRAC="YES"
+		INSTALL_MOLCAS="YES"
+		INSTALL_UTCHEM="YES"
+	else
+		PROGRAM_NAME="MOLCAS"
+		if [ -z "${INSTALL_MOLCAS:-}" ]; then
+			INSTALL_MOLCAS=$(whether_install_or_not)
+		fi
+		if [ ! "${INSTALL_MOLCAS}" = "YES" ] && [ ! "${INSTALL_MOLCAS}" = "NO" ]; then
+			INSTALL_MOLCAS=$(whether_install_or_not)
+		fi
+		PROGRAM_NAME="DIRAC"
+		if [ -z "${INSTALL_DIRAC:-}" ]; then
+			INSTALL_DIRAC=$(whether_install_or_not)
+		fi
+		if [ ! "${INSTALL_DIRAC}" = "YES" ] && [ ! "${INSTALL_DIRAC}" = "NO" ]; then
+			INSTALL_DIRAC=$(whether_install_or_not)
+		fi
+		PROGRAM_NAME="UTCHEM"
+		if [ -z "${INSTALL_UTCHEM:-}" ]; then
+			INSTALL_UTCHEM=$(whether_install_or_not)
+		fi
+		if [ ! "${INSTALL_UTCHEM}" = "YES" ] && [ ! "${INSTALL_UTCHEM}" = "NO" ]; then
+			INSTALL_UTCHEM=$(whether_install_or_not)
+		fi
+	fi
+
 	INSTALL_PROGRAMS=("git (https://git-scm.com/)" "CMake (https://cmake.org/)")
-	if [ "$molcas_install" == "YES" ]; then
+	if [ "$INSTALL_MOLCAS" == "YES" ]; then
 		INSTALL_PROGRAMS+=("Molcas (https://molcas.org/)")
 	fi
-	if [ "$dirac_install" == "YES" ]; then
+	if [ "$INSTALL_DIRAC" == "YES" ]; then
 		INSTALL_PROGRAMS+=("DIRAC (http://diracprogram.org/)")
 	fi
-	if [ "$utchem_install" == "YES" ]; then
+	if [ "$INSTALL_UTCHEM" == "YES" ]; then
 		INSTALL_PROGRAMS+=("UTChem (http://ccl.scc.kyushu-u.ac.jp/~nakano/papers/lncs-2660-84.pdf)")
 	fi
-	if [ "$utchem_install" == "YES" ] || [ "$dirac_install" == "YES" ]; then
+	if [ "$INSTALL_UTCHEM" == "YES" ] || [ "$INSTALL_DIRAC" == "YES" ]; then
 		INSTALL_PROGRAMS+=("OpenMPI (https://www.open-mpi.org/)")
 	fi
 
@@ -555,14 +585,12 @@ function check_install_programs () {
 
 function whether_install_or_not() {
     ANS="NO"
-    while true; do
     read -p "Do you want to install $PROGRAM_NAME? (y/N)" yn
     case $yn in
-        [Yy]* ) ANS="YES"; break;;
-        [Nn]* ) ANS="NO"; break;;
-        * ) ANS="NO"; break;;
+        [Yy]* ) ANS="YES";;
+        [Nn]* ) ANS="NO";;
+        * ) ANS="NO";;
     esac
-    done
     echo $ANS
 }
 
@@ -584,19 +612,20 @@ function set_install_path () {
     # Check if the path exists
 	# OVERWRITE is set to YES if the user wants to overwrite the existing installation
 	if [ "${OVERWRITE}" = "YES" ]; then
+		echo "!!!!!!!!!!!!!!!!!!!!! Warning: OVERWRITE option selected YES !!!!!!!!!!!!!!!!!!!!!"
 		echo "Warning: OVERWRITE option selected YES.  may overwrite the existing path! $INSTALL_PATH."
 		echo "If you want to keep the existing path, do not set OVERWRITE to YES."
+		echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 		ANS="NO"
-		while true; do
-			read -p "Do you want to continue? (y/N)" yn
-			case $yn in
-				[Yy]* ) ANS="YES"; break;;
-				[Nn]* ) ANS="NO"; break;;
-				* ) ANS="NO"; break;;
-			esac
-		done
+		read -p "Do you want to set OVERWRITE option selected YES? (y/N)" yn
+		case $yn in
+			[Yy]* ) ANS="YES";;
+			[Nn]* ) ANS="NO";;
+			* ) ANS="NO";;
+		esac
+		echo "Your answer is $ANS"
 		if [ "$ANS" = "NO" ]; then
-			echo "Exiting."
+			echo "OVERWRITE=YES was rejected by you. Exiting."
 			exit 1
 		fi
 		echo "OVERWRITE option selected YES. may overwrite the existing path! $INSTALL_PATH."
@@ -679,12 +708,6 @@ PYTHON2_VERSION="2.7.18"
 PYTHON3_VERSION="3.9.12"
 
 # Check whether the user wants to install or not
-PROGRAM_NAME="MOLCAS"
-molcas_install=$(whether_install_or_not)
-PROGRAM_NAME="DIRAC"
-dirac_install=$(whether_install_or_not)
-PROGRAM_NAME="UTCHEM"
-utchem_install=$(whether_install_or_not)
 check_install_programs
 
 # Check whether the environment modules (http://modules.sourceforge.net/) is already installed
@@ -692,11 +715,6 @@ is_enviroment_modules_installed
 
 # Check files and directories
 check_files_and_dirs
-
-# Congigure Molcas (interactive)
-if [ "$molcas_install" == "YES" ]; then
-	configure_molcas
-fi
 
 # Setup CMake
 setup_cmake
@@ -707,29 +725,34 @@ setup_git
 # Setup python using pyenv
 setup_python
 
-if [ "$utchem_install" == "YES" ] || [ "$dirac_install" == "YES" ]; then
+if [ "$INSTALL_UTCHEM" == "YES" ] || [ "$INSTALL_DIRAC" == "YES" ]; then
 	# Build OpenMPI (intel fortran, You need to build this to build DIRAC or UTCHEM)
 	setup_openmpi
 else
 	echo "Skip OpenMPI installation."
 fi
 
+# Congigure Molcas (interactive)
+if [ "$INSTALL_MOLCAS" == "YES" ]; then
+	configure_molcas
+fi
+
 # Build Molcas
-if [ "$molcas_install" == "YES" ]; then
+if [ "$INSTALL_MOLCAS" == "YES" ]; then
 	setup_molcas
 else
 	echo "Skip Molcas installation."
 fi
 
 # Setup utchem
-if [ "$utchem_install" == "YES" ]; then
+if [ "$INSTALL_UTCHEM" == "YES" ]; then
 	setup_utchem
 else
 	echo "Skip utchem installation."
 fi
 
 
-if [ "$dirac_install" == "YES" ]; then
+if [ "$INSTALL_DIRAC" == "YES" ]; then
 	# Build DIRAC
 	setup_dirac
 else
