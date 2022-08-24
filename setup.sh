@@ -51,7 +51,11 @@ function configure_molcas () {
 	fi
 	cd "$MOLCAS/$MOLCAS_TARBALL_NO_EXTENSION"
 	# Configure the Molcas package
-	./setup
+	echo "MOLCAS MKLROOT is ${MKLROOT}"
+	export XLIB="-mkl"
+	# export XLIB="-Wl,--no-as-needed -L${MKLROOT}/lib/intel64 -lmkl_gf_ilp64 -lmkl_core -lmkl_sequential -lpthread -lm -mkl"
+	COMPILERPATH="$( which mpiifort | xargs dirname )"
+	./fetch && ./configure -compiler intel -parallel -parallel -blas MKL -path "$COMPILERPATH"
 	ret=$?
 	if [ $ret -ne 0 ]; then
 		echo "ERROR: Molcas setup failed."
