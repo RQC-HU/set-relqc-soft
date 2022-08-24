@@ -14,23 +14,13 @@
   - いくつかのツールはインターネットアクセスを必要とするため、セットアップを行うサーバからインターネットへのアクセスが可能である必要があります
 
 - Environment Modules(必須ではないが推奨)
-  - セットアップされていない場合はPATHをスクリプト内で自動的に解決しますが、DIRACなどの実行時に毎回OpenMPIのパスを設定しないといけなくなるのでmoduleコマンドを使える状態にすることを推奨します
+  - Environment Modulesを使っていないと、セットアップ後DIRACなどのソフトウェア実行前に毎回OpenMPIなどの依存のあるソフトウェアのパスを設定しないといけなくなるのでmoduleコマンドを使える状態にすることを推奨します
   - [公式サイトはこちら](http://modules.sourceforge.net/)
-  - 他のPre-requirementsがEnvironment Modulesを使ってセットアップされている場合、スクリプト内でmodule purgeをしているため、setup.shのmodule purgeのあとでmodule loadをするようにスクリプトを変更してから実行してください
-  (例: Intel(R) FortranやMKLをEnvironment Modulesを使ってintel-fortran及びmklという名前でセットアップしている場合)
-
-  ```sh
-    # Clean modulefiles
-    module purge
-    module load intel-fortran
-    module load mkl
-  ```
-
-  - セットアップ後は\$HOME/.bashrcにmodule use --append "/セットアップしたユーザのホームディレクトリ/modulefiles"を記述すればmodule load DIRAC/21.1などのコマンドだけでDIRACのパスが設定されpamコマンドが使えるようになります(GitやCMakeも同様です)
+  - セットアップ後は\$HOME/.bashrcにmodule use --append "/セットアップしたユーザのホームディレクトリ/modulefiles"を記述すればmodule load dirac/22.0などのコマンドだけでDIRACのパスが設定されpamコマンドが使えるようになります(GitやCMakeも同様です)
 
   ```sh
     module use --append "/home/noda/modulefiles"
-    module load DIRAC/21.1
+    module load dirac/22.0
   ```
 
 - MOLCAS(ソースコードとライセンスファイル)
