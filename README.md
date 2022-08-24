@@ -5,11 +5,6 @@
 ## Pre-requirements
 
 ビルドにあたっては以下のコマンド、ツールがセットアップされていることを前提とします
-またセットアップ不要なプログラムがある場合、スクリプトの最初に以下のような質問が表示されるので、yまたはY**以外**を選んでください(インストールがスキップされます)
-
-```sh
-Do you want to install MOLCAS? (y/N)
-```
 
 - Intel(R) Fortran, C, C++ compiler, Math kernel library
   - [Intel(R) Fortran, C, C++ compiler](https://www.intel.com/content/www/us/en/developer/tools/oneapi/toolkits.html)
@@ -56,25 +51,29 @@ Do you want to install MOLCAS? (y/N)
 
 ## How to setup
 
-以下のコマンドを実行するとビルドが実行されます
+以下のコマンドを実行するとビルドが実行されます  
 
 ```sh
- INSTALL_PATH=/path/to/install SETUP_NPROCS=使用コア数 sh setup.sh
+ INSTALL_PATH=/path/to/install SETUP_NPROCS=使用コア数 INSTALL_ALL=YES sh setup.sh
  # (e.g.)
- INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 sh setup.sh
+ INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 INSTALL_ALL=YES sh setup.sh
  # 全体のビルドのログを取りたい場合
- INSTALL_PATH=/path/to/install SETUP_NPROCS=12 sh setup.sh | tee setup.log
+ INSTALL_PATH=/path/to/install SETUP_NPROCS=12 INSTALL_ALL=YES sh setup.sh | tee setup.log
+ # DIRAC, MOLCAS, UTChemをインストールするかどうか指定したいとき(例: UTChemをインストールしない場合)
+ INSTALL_PATH=/path/to/install SETUP_NPROCS=12 INSTALL_DIRAC=YES INSTALL_MOLCAS=YES INSTALL_UTChem=NO sh setup.sh
+```
+
+- 環境変数INSTALL_DIRAC, INSTALL_MOLCAS, INSTALL_UTChemは環境変数INSTALL_ALL=YESとしたときは指定する必要はありません  
+- INSTALL_ALL, INSTALL_DIRAC, INSTALL_MOLCAS, INSTALL_UTChemの指定が不十分なときは以下のようなインタラクティブな質問に答える必要があります
+
+```sh
+Do you want to install DIRAC? (y/N)
 ```
 
 - 環境変数INSTALL_PATHを設定すると指定ディレクトリ下にインストールされます。指定しないとデフォルトの\$HOME/softwareにインストールされます
 - INSTALL_PATHで指定しているディレクトリはインストール時**存在していない**必要があります(上書きを防ぐための仕様です)
 - 環境変数SETUP_NPROCSはビルドに使用するプロセス数を指定します。値が不正であるか指定しない場合はデフォルトの1プロセスになります(SETUP_NPROCSの値は6以上を推奨します)
-- 各ソフトウェアのログは自動的にlogファイルとして書き込まれますが、全体のログを取りたい場合は必ずteeコマンドを用いてログを取ってください(インタラクティブな部分があるので sh setup.sh > setup.log 2>&1 のようなログの取り方だと正常にスクリプトが実行されません)
-- スクリプトが始まるとUTChem,DIRAC,Molcasについては以下のような質問が表示されるので、yまたはYのあとEnter keyを打つとインストールされます(それ以外はどんな入力が行われてもインストールされません)
-
-```sh
-Do you want to install DIRAC? (y/N)
-```
+- 各ソフトウェアのログは自動的にlogファイルとして書き込まれます
 
 ### Molcasのテスト
 
@@ -99,9 +98,11 @@ molcas verify --parallel 3
   OVERWRITEをYESにした場合スクリプトのはじめに以下のような質問が出るので、上書きされる可能性について理解して了承している場合yを選択してください
 
   ```sh
+  !!!!!!!!!!!!!!!!!!!!! Warning: OVERWRITE option selected YES !!!!!!!!!!!!!!!!!!!!!
   Warning: OVERWRITE option selected YES.  may overwrite the existing path! /path/to/install.
   If you want to keep the existing path, please set OVERWRITE not to YES.
-  Do you want to continue? (y/N)
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  Do you want to set OVERWRITE option selected YES? (y/N)
   ```
 
   以上でインストール時に存在しているディレクトリにもソフトウェアをインストールすることができるようになります
