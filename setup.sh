@@ -51,13 +51,13 @@ function configure_molcas () {
 	cd "$MOLCAS/$MOLCAS_TARBALL_NO_EXTENSION"
 	# Configure the Molcas package
 	echo "MOLCAS MKLROOT is ${MKLROOT}"
-	if [ -z "$XLIB" ]; then
+	if [ -z "${XLIB:-}" ]; then
 		echo "MOLCAS XLIB is empty..."
 		export XLIB="-mkl"
 		# export XLIB="-Wl,--no-as-needed -L${MKLROOT}/lib/intel64 -lmkl_gf_ilp64 -lmkl_core -lmkl_sequential -lpthread -lm -mkl"
 		echo "MOLCAS XLIB is set to $XLIB"
 	fi
-	if [ -z "$MOLCAS_COMPILERPATH" ]; then
+	if [ -z "${MOLCAS_COMPILERPATH:-}" ]; then
 		echo "MOLCAS_COMPILERPATH is empty..."
 		MOLCAS_COMPILERPATH="$( which mpiifort | xargs dirname )"
 		echo "MOLCAS_COMPILERPATH is set to $MOLCAS_COMPILERPATH"
@@ -470,12 +470,12 @@ function check_molcas_files () {
 	MOLCAS_TARBALL=$(find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "molcas*tar*")
 
 	# Check if the license file and tarball exist
-	if [ -z "${MOLCAS_LICENSE}" ]; then
+	if [ -z "${MOLCAS_LICENSE:-}" ]; then
 		echo "ERROR: MOLCAS License file not found."
 		echo "Please check the file name (Searched for 'license*' in the '$SCRIPT_PATH/molcas' directory). Exiting."
 		exit 1
 	fi
-	if [ -z "${MOLCAS_TARBALL}" ]; then
+	if [ -z "${MOLCAS_TARBALL:-}" ]; then
 		echo "ERROR: MOLCAS Tarball file not found."
 		echo "Please check the file name (Searched for 'molcas*tar*' in the '$SCRIPT_PATH/molcas' directory). Exiting."
 		exit 1
@@ -506,7 +506,7 @@ function check_utchem_files () {
 		echo "Please check the file name (Searched for 'patches' in the '$SCRIPT_PATH/utchem' directory). Exiting."
 		exit 1
 	fi
-	if [ -z "${UTCHEM_TARBALL}" ]; then
+	if [ -z "${UTCHEM_TARBALL:-}" ]; then
 		echo "ERROR: UTCHEM Tarball file not found."
 		echo "Please check the file name (Searched for 'utchem*tar*' in the '$SCRIPT_PATH/utchem' directory). Exiting."
 		exit 1
@@ -683,7 +683,7 @@ if ! type ifort > /dev/null; then
 fi
 
 # Check $MKLROOT is set or not
-if [ -z "$MKLROOT" ]; then
+if [ -z "${MKLROOT:-}" ]; then
 	echo "MKLROOT is not set."
 	echo "Please set MKLROOT environment variable."
 	exit 1
