@@ -44,13 +44,13 @@
 以下のコマンドを実行するとビルドが実行されます  
 
 ```sh
- INSTALL_PATH=/path/to/install SETUP_NPROCS=使用コア数 INSTALL_ALL=YES sh setup.sh
+ INSTALL_PATH=/path/to/install SETUP_NPROCS=使用コア数 INSTALL_ALL=YES bash setup.sh
  # (e.g.)
- INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 INSTALL_ALL=YES sh setup.sh
+ INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 INSTALL_ALL=YES bash setup.sh
  # 全体のビルドのログを取りたい場合
- INSTALL_PATH=/path/to/install SETUP_NPROCS=12 INSTALL_ALL=YES sh setup.sh | tee setup.log
+ INSTALL_PATH=/path/to/install SETUP_NPROCS=12 INSTALL_ALL=YES bash setup.sh | tee setup.log
  # DIRAC, MOLCAS, UTChemをインストールするかどうか指定したいとき(例: UTChemをインストールしない場合)
- INSTALL_PATH=/path/to/install SETUP_NPROCS=12 INSTALL_DIRAC=YES INSTALL_MOLCAS=YES INSTALL_UTChem=NO sh setup.sh
+ INSTALL_PATH=/path/to/install SETUP_NPROCS=12 INSTALL_DIRAC=YES INSTALL_MOLCAS=YES INSTALL_UTChem=NO bash setup.sh
 ```
 
 - 環境変数INSTALL_DIRAC, INSTALL_MOLCAS, INSTALL_UTChemは環境変数INSTALL_ALL=YESとしたときは指定する必要はありません  
@@ -70,7 +70,7 @@ Do you want to install DIRAC? (y/N)
   ```sh
     export MOLCAS_COMPILERPATH=$(which mpiifort | xargs dirname)
     export XLIB=/path/to/mkl
-    INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 INSTALL_ALL=YES sh setup.sh
+    INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 INSTALL_ALL=YES bash setup.sh
   ```
 
 ### Molcasのテスト
@@ -90,7 +90,7 @@ molcas verify --parallel 3
   上書きされる可能性があることを承知した上で、すでに存在するディレクトリをINSTALL_PATHに指定したい場合は環境変数OVERWRITEをYESに設定してください
 
   ```sh
-  OVERWRITE=YES INSTALL_PATH=$HOME/softwares SETUP_NPROCS=12 sh setup.sh
+  OVERWRITE=YES INSTALL_PATH=$HOME/softwares SETUP_NPROCS=12 bash setup.sh
   ```
 
   OVERWRITEをYESにした場合スクリプトのはじめに以下のような質問が出るので、上書きされる可能性について理解して了承している場合yを選択してください
