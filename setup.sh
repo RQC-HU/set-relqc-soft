@@ -739,7 +739,7 @@ function check_requirements(){
 	if ! type icpc > /dev/null; then
 		err_compiler "Intel® C++ Library" "icpc"
 	fi
-	if [ -z "${MKLROOOT:-}" ]; then
+	if [ -z "${MKLROOT:-}" ]; then
 		echo "==========================================================================="
 		echo "Error: Environmental variable \$MKLROOT is not set."
 		echo "You must set \$MKLROOT to the path of Intel® oneAPI Math Kernel Library"
