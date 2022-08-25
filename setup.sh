@@ -339,29 +339,6 @@ function setup_dirac () {
 	cd "$SCRIPT_PATH"
 }
 
-function setup_git () {
-	echo "Start git setup..."
-	mkdir -p "${GIT}"
-	tar -xf "${SCRIPT_PATH}/git/git-${GIT_VERSION}.tar.gz" -C "${GIT}"
-	# ${GIT} にコピーされたtarballは使わないが、あとからどのtarballを使ってビルドしたか確認しやすくするためにコピーしておく
-	cp -f "${SCRIPT_PATH}/git/git-${GIT_VERSION}.tar.gz" "${GIT}"
-	cp -f "${SCRIPT_PATH}/git/.git-completion.bash" "${GIT}"
-	cd "${GIT}/git-${GIT_VERSION}"
-	make prefix="${GIT}" -j "$SETUP_NPROCS" && make prefix="${GIT}" install
-	ret=$?
-	if [ $ret -ne 0 ]; then
-		echo "Git build failed."
-		exit $ret
-	fi
-	mkdir -p "${MODULEFILES}/git"
-	cp -f "${SCRIPT_PATH}/git/${GIT_VERSION}" "${MODULEFILES}/git/${GIT_VERSION}"
-	echo "prepend-path    PATH            ${GIT}/bin" >> "${MODULEFILES}/git/${GIT_VERSION}"
-	echo "source $HOME/.config/git/.git-completion.bash" >> "${HOME}/.bashrc"
-	export PATH="${GIT}/bin:$PATH"
-	git --version
-    cd "${SCRIPT_PATH}"
-}
-
 function setup_python () {
 	echo "Start python setup..."
 	PYENVROOT="$INSTALL_PATH/.pyenv"
@@ -564,7 +541,7 @@ function check_install_programs () {
 		fi
 	fi
 
-	INSTALL_PROGRAMS=("git (https://git-scm.com/)" "CMake (https://cmake.org/)")
+	INSTALL_PROGRAMS=("CMake (https://cmake.org/)")
 	if [ "$INSTALL_MOLCAS" == "YES" ]; then
 		INSTALL_PROGRAMS+=("Molcas (https://molcas.org/)")
 	fi
@@ -693,6 +670,10 @@ function check_requirements(){
 		err_not_installed "make"
 		exit 1
 	fi
+	if ! type git > /dev/null; then
+		err_not_installed "git"
+		exit 1
+	fi
 	if ! type awk > /dev/null; then
 		err_not_installed "awk"
 		exit 1
@@ -771,10 +752,8 @@ OPENMPI="${INSTALL_PATH}/openmpi-intel"
 DIRAC="${INSTALL_PATH}/dirac"
 MOLCAS="${INSTALL_PATH}/molcas"
 UTCHEM="${INSTALL_PATH}/utchem"
-GIT="${INSTALL_PATH}/git"
 
 # VERSIONS
-GIT_VERSION="2.37.1"
 CMAKE_VERSION="3.23.2"
 OPENMPI3_VERSION="3.1.0"
 OPENMPI4_VERSION="4.1.2"
@@ -791,7 +770,6 @@ check_files_and_dirs
 
 # Install programs
 setup_cmake
-setup_git
 setup_python
 
 if [ "$INSTALL_UTCHEM" == "YES" ] || [ "$INSTALL_DIRAC" == "YES" ]; then
