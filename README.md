@@ -64,6 +64,14 @@ Do you want to install DIRAC? (y/N)
 - INSTALL_PATHで指定しているディレクトリはインストール時**存在していない**必要があります(上書きを防ぐための仕様です)
 - 環境変数SETUP_NPROCSはビルドに使用するプロセス数を指定します。値が不正であるか指定しない場合はデフォルトの1プロセスになります(SETUP_NPROCSの値は6以上を推奨します)
 - 各ソフトウェアのログは自動的にlogファイルとして書き込まれます
+- If you want to manually setup MOLCAS, please set environmental variables, XLIB and MOLCAS_COMPILERPATH.
+  - e.g.
+
+  ```sh
+    export MOLCAS_COMPILERPATH=$(which mpiifort | xargs dirname)
+    export XLIB=/path/to/mkl
+    INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 INSTALL_ALL=YES sh setup.sh
+  ```
 
 ### Molcasのテスト
 
