@@ -674,6 +674,10 @@ function check_requirements(){
 		err_not_installed "git"
 		exit 1
 	fi
+	if ! type patch > /dev/null; then
+		err_not_installed "patch"
+		exit 1
+	fi
 	if ! type awk > /dev/null; then
 		err_not_installed "awk"
 		exit 1
