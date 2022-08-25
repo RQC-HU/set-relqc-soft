@@ -2,34 +2,8 @@
 set -euo pipefail
 
 function setup_molcas () {
-	echo "Start setup molcas..."
-	cd "$MOLCAS/$MOLCAS_TARBALL_NO_EXTENSION"
-
-	# Build MOLCAS
-	make 2>&1 | tee "$SCRIPT_PATH/molcas-make.log"
-	ret=$?
-	if [ $ret -ne 0 ]; then
-		echo "ERROR: Molcas make failed with exit code $ret"
-		exit $ret
-	fi
-
-	cd "$SCRIPT_PATH"
-}
-
-function check_one_file_only () {
-    if [ "$( echo "$FILE_NAMES" | wc -l )" -gt 1 ]; then
-        echo "ERROR: Detected multiple $PROGRAM_NAME ${FILE_TYPE}s in $SCRIPT_PATH/$PROGRAM_NAME directory."
-        echo "       Searched for $FILE_TYPE files named '$FIND_CONDITION'."
-        echo "       Please remove all but one file."
-        echo "Detected ${FILE_TYPE}s:"
-        echo "$FILE_NAMES"
-        echo "Exiting."
-        exit 1
-    fi
-}
-
-function configure_molcas () {
-	echo "Starting Molcas interactive setup"
+	# Configure Molcas
+	echo "Starting Molcas setup..."
 	# Find the directory for the MOLCAS installation
 	# (e.g. molcas84.tar.gz -> molcas84)
 	MOLCAS_LICENSE=$(find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "license*")
@@ -48,9 +22,9 @@ function configure_molcas () {
 		echo "Please check the file name (Searched for '$MOLCAS_TARBALL_NO_EXTENSION' in the '$MOLCAS' directory). Exiting."
 		exit 1
 	fi
-	cd "$MOLCAS/$MOLCAS_TARBALL_NO_EXTENSION"
+
 	# Configure the Molcas package
-	echo "MOLCAS MKLROOT is ${MKLROOT}"
+	cd "$MOLCAS/$MOLCAS_TARBALL_NO_EXTENSION"
 	if [ -z "${XLIB:-}" ]; then
 		echo "MOLCAS XLIB is empty..."
 		export XLIB="-mkl"
@@ -74,7 +48,28 @@ function configure_molcas () {
 	cp -f "$SCRIPT_PATH/molcas/molcas" "${MODULEFILES}"
 	echo "prepend-path  PATH	${HOME}/bin" >> "${MODULEFILES}/utchem"
 
+	# Build MOLCAS
+	cd "$MOLCAS/$MOLCAS_TARBALL_NO_EXTENSION"
+	make 2>&1 | tee "$SCRIPT_PATH/molcas-make.log"
+	ret=$?
+	if [ $ret -ne 0 ]; then
+		echo "ERROR: Molcas make failed with exit code $ret"
+		exit $ret
+	fi
+
 	cd "$SCRIPT_PATH"
+}
+
+function check_one_file_only () {
+    if [ "$( echo "$FILE_NAMES" | wc -l )" -gt 1 ]; then
+        echo "ERROR: Detected multiple $PROGRAM_NAME ${FILE_TYPE}s in $SCRIPT_PATH/$PROGRAM_NAME directory."
+        echo "       Searched for $FILE_TYPE files named '$FIND_CONDITION'."
+        echo "       Please remove all but one file."
+        echo "Detected ${FILE_TYPE}s:"
+        echo "$FILE_NAMES"
+        echo "Exiting."
+        exit 1
+    fi
 }
 
 function test_utchem () {
@@ -352,7 +347,7 @@ function setup_git () {
 	cp -f "${SCRIPT_PATH}/git/git-${GIT_VERSION}.tar.gz" "${GIT}"
 	cp -f "${SCRIPT_PATH}/git/.git-completion.bash" "${GIT}"
 	cd "${GIT}/git-${GIT_VERSION}"
-	make prefix="${GIT}" -j "$SETUP_NPROCS"  && make prefix="${GIT}" install
+	make prefix="${GIT}" -j "$SETUP_NPROCS" && make prefix="${GIT}" install
 	ret=$?
 	if [ $ret -ne 0 ]; then
 		echo "Git build failed."
@@ -648,55 +643,122 @@ function set_install_path () {
 }
 
 function is_enviroment_modules_installed(){
-	echo "Checking if the environment modules is already installed..."
+	echo "Checking if the Enviroment Modules is already installed..."
 	mkdir -p "${MODULEFILES}"
 	if type module > /dev/null; then
-		echo "Enviroment modules is installed"
-		echo "You can use module command to load the modules under $MODULEFILES in your bashrc file."
+		echo "Enviroment Modules is installed"
+		echo "You can use module command to load the Modules under $MODULEFILES in your bashrc file."
 		echo "(e.g. module use --append ${MODULEFILES})"
 		module use --append "${MODULEFILES}"
 		echo "module use --append ${MODULEFILES}" >> "$HOME/.bashrc"
 		echo "Info: Add the modulefiles to your bashrc file. (module use --append ${MODULEFILES})"
 	else
-		echo "Enviroment modules is not installed"
-		echo "After Enviroment modules is installed, you can use module command (c.f. http://modules.sourceforge.net/)"
+		echo "Enviroment Modules is not installed"
+		echo "After Enviroment Modules is installed, you can use module command (c.f. http://modules.sourceforge.net/)"
 		echo "You need to load the modules under $MODULEFILES in your bashrc file to use the modules configured in this script."
 		echo "(e.g. module use --append ${MODULEFILES})"
 	fi
 }
 
+
+function err_not_installed(){
+	echo "==========================================================================="
+	echo "Error: $1 is not installed"
+	echo "$1 command is not installed. You must install $1 and try again."
+	echo "==========================================================================="
+	exit 1
+}
+
+function err_compiler(){
+	echo "================================================================================"
+	echo "$1 ($2) doesn't exist. You must install $2."
+	echo "A simple setup is to install all packages Intel® oneAPI Base Toolkit and Intel® oneAPI HPC Toolkit."
+	echo "But more specifically, you need to install the following packages:"
+	echo "- Intel® oneAPI Math Kernel Library (MKL) (included in Intel® oneAPI Base Toolkit)"
+	echo "- Intel® oneAPI DPC++/C++ Compiler (included in Intel® oneAPI Base Toolkit)"
+	echo "- Intel® MPI Library (included in Intel® oneAPI HPC Toolkit)"
+	echo "- Intel® Fortran Compiler (included in Intel® oneAPI HPC Toolkit)"
+	echo "- Intel® MPI Library (included in Intel® oneAPI HPC Toolkit)"
+	echo "When setting up oneAPI on a shared server,"
+	echo "please refer to https://www.intel.com/content/www/us/en/develop/documentation/oneapi-programming-guide/top/oneapi-development-environment-setup/use-modulefiles-with-linux.html "
+	echo "to set up with Enviroment Modules."
+	echo "================================================================================"
+	exit 1
+}
+
+function check_requirements(){
+	variable=(/'a' 'b' 'c'/)
+	echo "${variable[@]}" > /dev/null
+	if ! type awk > /dev/null; then
+		err_not_installed "awk"
+		exit 1
+	fi
+	if ! type expr > /dev/null; then
+		err_not_installed "expr"
+		exit 1
+	fi
+	num=-1
+	a=$(($num / 2))||1
+	if ! type find > /dev/null; then
+		err_not_installed "find"
+		exit 1
+	fi
+	if ! type grep > /dev/null; then
+		err_not_installed "grep"
+		exit 1
+	fi
+	if ! type kill > /dev/null; then
+		err_not_installed "kill"
+		exit 1
+	fi
+	if ! type ps > /dev/null; then
+		err_not_installed "ps"
+		exit 1
+	fi
+	if ! type read > /dev/null; then
+		err_not_installed "read"
+		exit 1
+	fi
+	if ! type tar > /dev/null; then
+		err_not_installed "tar"
+		exit 1
+	fi
+	if ! type wget > /dev/null; then
+		err_not_installed "wget"
+		exit 1
+	fi
+	if ! type ifort > /dev/null; then
+		err_compiler "Intel® Fortran compiler" "ifort"
+	fi
+	if ! type mpiifort > /dev/null; then
+		err_compiler "Intel® MPI Library" "mpiifort"
+	fi
+	if ! type icc > /dev/null; then
+		err_compiler "Intel® C compiler" "icc"
+	fi
+	if ! type icpc > /dev/null; then
+		err_compiler "Intel® C++ Library" "icpc"
+	fi
+	if [ -z "${MKLROOOT:-}" ]; then
+		echo "==========================================================================="
+		echo "Error: Environmental variable \$MKLROOT is not set."
+		echo "You must set \$MKLROOT to the path of Intel® oneAPI Math Kernel Library"
+		echo "==========================================================================="
+		exit 1
+	fi
+	echo "All requirements are configured. Proceeding..."
+
+}
+
 ## Main ##
-
-# Unset all aliases
 \unalias -a
-
-# Setup umask
 umask 0022
-
-# If intel fortran doesn't exist, Exit with error
-if ! type ifort > /dev/null; then
-	echo "intel fortran compiler (ifort) doesn't exist. We should build intel fortran."
-	echo "Please install intel fortran and try again.(ref https://www.intel.com/content/www/us/en/developer/tools/oneapi/toolkits.html)"
-	echo "You can also install intel fortran by running the following command(sudo authority and internet access are required): "
-	echo "> sudo sh ${SCRIPT_PATH}/intel-fortran.sh"
-	exit 1
-fi
-
-# Check $MKLROOT is set or not
-if [ -z "${MKLROOT:-}" ]; then
-	echo "MKLROOT is not set."
-	echo "Please set MKLROOT environment variable."
-	exit 1
-fi
-
-# Set the number of process
-set_process_number
-
-# Set the path of installation directory
-set_install_path
-
-# Set this script's path
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
+
+check_requirements
+
+set_process_number
+set_install_path
 
 # Software path
 MODULEFILES="${INSTALL_PATH}/modulefiles"
@@ -721,38 +783,25 @@ check_install_programs
 # Check whether the environment modules (http://modules.sourceforge.net/) is already installed
 is_enviroment_modules_installed
 
-# Check files and directories
 check_files_and_dirs
 
-# Setup CMake
+# Install programs
 setup_cmake
-
-# Setup git
 setup_git
-
-# Setup python using pyenv
 setup_python
 
 if [ "$INSTALL_UTCHEM" == "YES" ] || [ "$INSTALL_DIRAC" == "YES" ]; then
-	# Build OpenMPI (intel fortran, You need to build this to build DIRAC or UTCHEM)
 	setup_openmpi
 else
 	echo "Skip OpenMPI installation."
 fi
 
-# Congigure Molcas (interactive)
-if [ "$INSTALL_MOLCAS" == "YES" ]; then
-	configure_molcas
-fi
-
-# Build Molcas
 if [ "$INSTALL_MOLCAS" == "YES" ]; then
 	setup_molcas
 else
 	echo "Skip Molcas installation."
 fi
 
-# Setup utchem
 if [ "$INSTALL_UTCHEM" == "YES" ]; then
 	setup_utchem
 else
@@ -761,7 +810,6 @@ fi
 
 
 if [ "$INSTALL_DIRAC" == "YES" ]; then
-	# Build DIRAC
 	setup_dirac
 else
 	echo "Skip dirac installation."
