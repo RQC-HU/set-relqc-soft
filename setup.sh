@@ -689,6 +689,10 @@ function err_compiler(){
 function check_requirements(){
 	variable=(/'a' 'b' 'c'/)
 	echo "${variable[@]}" > /dev/null
+	if ! type make > /dev/null; then
+		err_not_installed "make"
+		exit 1
+	fi
 	if ! type awk > /dev/null; then
 		err_not_installed "awk"
 		exit 1
