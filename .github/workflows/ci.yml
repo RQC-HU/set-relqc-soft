@@ -1,7 +1,7 @@
 name: build-test
 on: push
 jobs:
-  build:
+  setup:
     runs-on: ubuntu-latest
     env:
       KEYVERSION: v1
@@ -30,5 +30,8 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh
           printenv >> $GITHUB_ENV
+  minimal-build:
+    needs: setup
+    steps:
       - name: minimal-building
         run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=4 INSTALL_DIRAC=NO INSTALL_MOLCAS=NO INSTALL_UTCHEM=NO bash setup.sh
