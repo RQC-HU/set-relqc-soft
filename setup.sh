@@ -804,12 +804,3 @@ else
 fi
 
 echo "Build end"
-function shutdown() {
-    ps -o pid,cmd --tty "$(tty)" | tail -n +2 | while read -ra line; do
-        if [[ ${line[1]} == *sleep* ]]; then
-            kill "${line[0]}"
-        fi
-    done
-}
-
-trap shutdown EXIT
