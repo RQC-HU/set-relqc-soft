@@ -700,10 +700,6 @@ function check_requirements(){
 		err_not_installed "kill"
 		exit 1
 	fi
-	if ! type ps > /dev/null; then
-		err_not_installed "ps"
-		exit 1
-	fi
 	if ! type read > /dev/null; then
 		err_not_installed "read"
 		exit 1
