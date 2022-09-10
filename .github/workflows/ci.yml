@@ -32,6 +32,7 @@ jobs:
           printenv >> $GITHUB_ENV
   minimal-build:
     needs: setup
+    runs-on: ubuntu-latest
     steps:
       - name: minimal-building
         run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=4 INSTALL_DIRAC=NO INSTALL_MOLCAS=NO INSTALL_UTCHEM=NO bash setup.sh
