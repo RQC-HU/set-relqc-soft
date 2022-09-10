@@ -17,6 +17,8 @@ jobs:
           path: |
             /opt/intel/oneapi
           key: ${{ runner.os }}-install-${{ env.KEYVERSION }}
+      - name: View openssl version
+        run: openssl version
       - name: Setup Intel fortran (apt)
         if: steps.cache-install.outputs.cache-hit != 'true'
         run: |
@@ -33,4 +35,4 @@ jobs:
           source /opt/intel/oneapi/setvars.sh
           printenv >> $GITHUB_ENV
       - name: minimal-building
-        run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=4 INSTALL_DIRAC=NO INSTALL_MOLCAS=NO INSTALL_UTChem=NO bash setup.sh
+        run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=4 INSTALL_DIRAC=NO INSTALL_MOLCAS=NO INSTALL_UTCHEM=NO bash setup.sh
