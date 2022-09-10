@@ -6,8 +6,6 @@ jobs:
     env:
       KEYVERSION: v1
       FC: ifort
-      CC: icc
-      CXX: icpc
     steps:
       - uses: actions/checkout@v3
       - name: cache install
@@ -17,8 +15,6 @@ jobs:
           path: |
             /opt/intel/oneapi
           key: ${{ runner.os }}-install-${{ env.KEYVERSION }}
-      - name: View openssl version
-        run: openssl version
       - name: Setup Intel fortran (apt)
         if: steps.cache-install.outputs.cache-hit != 'true'
         run: |
