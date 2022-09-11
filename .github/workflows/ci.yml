@@ -1,0 +1,76 @@
+name: build-test
+on:
+  push:
+    paths:
+    - '**.sh'
+    - '.github/workflows/ci.yml'
+jobs:
+  minimal-build:
+    runs-on: ubuntu-latest
+    env:
+      KEYVERSION: v1
+      FC: ifort
+    steps:
+      - uses: actions/checkout@v3
+      - name: cache install
+        id: cache-install
+        uses: actions/cache@v3
+        with:
+          path: |
+            /opt/intel/oneapi
+          key: ${{ runner.os }}-install-${{ env.KEYVERSION }}
+      - name: Setup Intel fortran (apt)
+        if: steps.cache-install.outputs.cache-hit != 'true'
+        run: |
+          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+          sudo apt-get update
+      - name: Install Intel Fortran compiler
+        if: steps.cache-install.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-openmp intel-oneapi-mkl intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic
+      - name: Set Intel oneAPI environments
+        run: |
+          source /opt/intel/oneapi/setvars.sh
+          printenv >> $GITHUB_ENV
+      - name: minimal-building
+        run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=4 INSTALL_DIRAC=NO INSTALL_MOLCAS=NO INSTALL_UTCHEM=NO bash setup.sh
+  build-dirac:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dirac_version: ["19.0", "21.1", "22.0"]
+    env:
+      KEYVERSION: v2
+      FC: ifort
+    steps:
+      - uses: actions/checkout@v3
+      - name: cache install
+        id: cache-install
+        uses: actions/cache@v3
+        with:
+          path: |
+            /opt/intel/oneapi
+          key: ${{ runner.os }}-install-${{ env.KEYVERSION }}
+      - name: Setup Intel fortran (apt)
+        if: steps.cache-install.outputs.cache-hit != 'true'
+        run: |
+          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+          sudo apt-get update
+      - name: Install Intel Fortran compiler
+        if: steps.cache-install.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-openmp intel-oneapi-mkl intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic
+      - name: Set Intel oneAPI environments
+        run: |
+          source /opt/intel/oneapi/setvars.sh
+          printenv >> $GITHUB_ENV
+      - name: Build and test DIRAC
+        run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=2 INSTALL_DIRAC=YES INSTALL_DIRAC_VERSIONS=${{ matrix.dirac_version }} INSTALL_MOLCAS=NO INSTALL_UTCHEM=NO bash setup.sh
+      - name: Check DIRAC failed tests result
+        run: cat $HOME/softwares/dirac/${{ matrix.dirac_version }}/test_results/LastTestsFailed.log
+      - name: Check DIRAC test result
+        run: cat $HOME/softwares/dirac/${{ matrix.dirac_version }}/test_results/LastTest.log

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+function trap_sigint() {
+    echo "trap is detected(sigint)"
+	exit 1
+}
+trap trap_sigint sigint
+
 function setup_molcas () {
 	# Configure Molcas
 	echo "Starting Molcas setup..."
@@ -244,14 +250,18 @@ function setup_utchem () {
 }
 
 function run_dirac_testing () {
-	echo "START DIRAC-${DIRAC_VERSION} ${TEST_TYPE} test!!"
+	echo "START DIRAC-${DIRAC_VERSION} test!!"
+	TEST_NPROCS=${DIRAC_NPROCS}
+    mkdir -p "$DIRAC_BASEDIR"/test_results
     export DIRAC_MPI_COMMAND="mpirun -np $TEST_NPROCS"
 	set +e
 	make test
 	set -e
-	cp -f Testing/Temporary/LastTest.log "$DIRAC_BASEDIR/test_results/$TEST_TYPE"
+	cp -f Testing/Temporary/LastTest.log "$DIRAC_BASEDIR/test_results"
 	if [ -f Testing/Temporary/LastTestsFailed.log ]; then
-	cp -f Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR/test_results/$TEST_TYPE"
+		cp -f Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR/test_results"
+	else
+		echo "NO TESTS FAILED" > "$DIRAC_BASEDIR/test_results/LastTestsFailed.log"
 	fi
 }
 
@@ -278,15 +288,6 @@ function build_dirac () {
 	cp -f "${DIRAC_BASEDIR}/${DIRAC_VERSION}" "${DIRAC_MODULE_DIR}"
 	echo "module load openmpi/${OMPI_VERSION}-intel" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
 	echo "prepend-path  PATH	${DIRAC_BASEDIR}/share/dirac" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
-	# Serial test
-	TEST_TYPE="serial"
-	TEST_NPROCS=1
-	mkdir -p "$DIRAC_BASEDIR"/test_results/serial
-	run_dirac_testing
-	# Parallel test
-	TEST_TYPE="parallel"
-	TEST_NPROCS=${DIRAC_NPROCS}
-    mkdir -p "$DIRAC_BASEDIR"/test_results/parallel
 	run_dirac_testing
 	cd "$SCRIPT_PATH"
 }
@@ -302,39 +303,19 @@ function setup_dirac () {
 	pyenv global "$PYTHON3_VERSION"
 	DIRAC_SCR="$HOME/dirac_scr"
 	mkdir -p "$DIRAC_SCR"
-	DIRAC_NPROCS=$(( $SETUP_NPROCS / 3 ))
-	OMPI_VERSION="$OPENMPI3_VERSION" # DIRAC 19.0 and 21.1 use this version of OpenMPI
+	DIRAC_NPROCS=$(( $SETUP_NPROCS / $dirac_counts ))
+	OMPI_VERSION="$OPENMPI4_VERSION" # DIRAC 19.0 and 21.1 use this version of OpenMPI
 	set_ompi_path # set OpenMPI PATH
-	if (( "$DIRAC_NPROCS" <= 1 )); then # Serial build
-		echo "DIRAC will be built in serial mode."
-		DIRAC_NPROCS=$SETUP_NPROCS
-		# Build DIRAC 19.0
-		DIRAC_VERSION="19.0"
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
-		# Build DIRAC 21.1
-		DIRAC_VERSION="21.1"
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
-		# Build DIRAC 22.0
-		DIRAC_VERSION="22.0"
-		OMPI_VERSION="$OPENMPI4_VERSION"
-		set_ompi_path # set OpenMPI PATH
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
-	else # Parallel build
-		echo "DIRAC will be built in parallel mode."
-		# Build DIRAC 19.0
-		DIRAC_VERSION="19.0"
-		OMPI_VERSION="3.1.0"
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
-		# Build DIRAC 21.1
-		DIRAC_VERSION="21.1"
-		OMPI_VERSION="3.1.0"
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
-		# Build DIRAC 22.0
-		DIRAC_VERSION="22.0"
-		OMPI_VERSION="$OPENMPI4_VERSION"
-		set_ompi_path # set OpenMPI PATH
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
-	fi
+	for DIRAC_VERSION in $INSTALL_DIRAC_VERSIONS; do
+		if (( "$DIRAC_NPROCS" <= 1 )); then # Serial build
+			echo "DIRAC will be built in serial mode."
+			DIRAC_NPROCS=$SETUP_NPROCS
+		    build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
+		else # Parallel build
+			echo "DIRAC will be built in parallel mode."
+			build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
+		fi
+	done
 	wait
 	cd "$SCRIPT_PATH"
 }
@@ -356,6 +337,7 @@ function setup_python () {
 		echo "export PYENV_ROOT=\"$PYENVROOT\"" >> "$HOME/.bashrc"
 		echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >> "$HOME/.bashrc"
 		echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
+		export MAKE_OPTS="-j${SETUP_NPROCS}"
 		pyenv install "$PYTHON2_VERSION"
 		pyenv install "$PYTHON3_VERSION"
 	fi
@@ -397,26 +379,10 @@ function build_openmpi() {
 }
 
 function setup_openmpi() {
-	OPENMPI_NPROCS=$(( $SETUP_NPROCS / 2 ))
-	if (( "$OPENMPI_NPROCS < 1" )); then
-		# Serial build
-		echo "CMake will be built in serial mode."
-		# Build OpenMPI 3.1.0 (intel fortran)
-		OMPI_VERSION="$OPENMPI3_VERSION"
-		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log"
-		# Build OpenMPI 4.1.2 (intel fortran)
-		OMPI_VERSION="$OPENMPI4_VERSION"
-		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log"
-	else
-		# Parallel build
-		echo "CMake will be built in parallel mode."
-		# Build OpenMPI 3.1.0 (intel fortran)
-		OMPI_VERSION="$OPENMPI3_VERSION"
-		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log" &
-		# Build OpenMPI 4.1.2 (intel fortran)
-		OMPI_VERSION="$OPENMPI4_VERSION"
-		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log" &
-	fi
+	OPENMPI_NPROCS=$SETUP_NPROCS
+	# Build OpenMPI 4.1.2 (intel fortran)
+	OMPI_VERSION="$OPENMPI4_VERSION"
+	build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log"
 	wait
 	cd "${SCRIPT_PATH}"
 }
@@ -532,6 +498,28 @@ function check_install_programs () {
 		if [ ! "${INSTALL_DIRAC}" = "YES" ] && [ ! "${INSTALL_DIRAC}" = "NO" ]; then
 			INSTALL_DIRAC=$(whether_install_or_not)
 		fi
+		if [ "${INSTALL_DIRAC}" = "YES" ]; then
+			if [ -z "${INSTALL_DIRAC_VERSIONS:-}" ]; then
+				INSTALL_DIRAC_VERSIONS="all"
+		    fi
+			if [ $INSTALL_DIRAC_VERSIONS = "all" ]; then
+				cd "$SCRIPT_PATH/dirac"
+				INSTALL_DIRAC_VERSIONS=$(ls -d -- *)
+				cd "$SCRIPT_PATH"
+			fi
+			echo "You will install DIRAC versions: $INSTALL_DIRAC_VERSIONS"
+			count=0
+			for DIRAC_VERSION in $INSTALL_DIRAC_VERSIONS; do
+			    count=$((count+1))
+				if [ ! -d "$SCRIPT_PATH/dirac/$DIRAC_VERSION" ]; then
+					echo "ERROR: DIRAC version $DIRAC_VERSION not found."
+					echo "Please check the file name (Searched for '$DIRAC_VERSION' in the '$SCRIPT_PATH/dirac' directory). Exiting."
+					exit 1
+				fi
+			done
+			dirac_counts=$count
+			echo "You will install $dirac_counts DIRAC versions."
+		fi
 		PROGRAM_NAME="UTCHEM"
 		if [ -z "${INSTALL_UTCHEM:-}" ]; then
 			INSTALL_UTCHEM=$(whether_install_or_not)
@@ -580,8 +568,6 @@ function set_install_path () {
         echo "INSTALL_PATH is not set"
         INSTALL_PATH="${HOME}/software"
 		echo "INSTALL_PATH is set to default install path: $INSTALL_PATH"
-    else
-		echo "INSTALL_PATH is set to: $INSTALL_PATH"
 	fi
 
 	# If overwrite is not set, change overwrite to NO
@@ -609,7 +595,6 @@ function set_install_path () {
 			exit 1
 		fi
 		echo "OVERWRITE option selected YES. may overwrite the existing path! $INSTALL_PATH."
-		return # No need to check if the path exists, because we are overwriting the files.
 	else
 		if [ -d "$INSTALL_PATH" ]; then
 			echo "$INSTALL_PATH is already exists"
@@ -617,6 +602,11 @@ function set_install_path () {
 			exit 1
 		fi
 	fi
+
+	mkdir -p "${INSTALL_PATH}"
+	INSTALL_PATH=$(cd "$(dirname "${INSTALL_PATH}")"; pwd)/$(basename "$INSTALL_PATH")
+	echo "INSTALL_PATH is set to: $INSTALL_PATH"
+
 }
 
 function is_enviroment_modules_installed(){
@@ -700,16 +690,16 @@ function check_requirements(){
 		err_not_installed "kill"
 		exit 1
 	fi
-	if ! type ps > /dev/null; then
-		err_not_installed "ps"
-		exit 1
-	fi
 	if ! type read > /dev/null; then
 		err_not_installed "read"
 		exit 1
 	fi
 	if ! type tar > /dev/null; then
 		err_not_installed "tar"
+		exit 1
+	fi
+	if ! type wc > /dev/null; then
+		err_not_installed "wc"
 		exit 1
 	fi
 	if ! type wget > /dev/null; then
@@ -719,8 +709,10 @@ function check_requirements(){
 	if ! type ifort > /dev/null; then
 		err_compiler "Intel® Fortran compiler" "ifort"
 	fi
-	if ! type mpiifort > /dev/null; then
-		err_compiler "Intel® MPI Library" "mpiifort"
+	if [ "${INSTALL_MOLCAS}" = "YES" ]; then
+		if ! type mpiifort > /dev/null; then
+			err_compiler "Intel® MPI Library" "mpiifort"
+		fi
 	fi
 	if ! type icc > /dev/null; then
 		err_compiler "Intel® C compiler" "icc"
@@ -744,6 +736,9 @@ function check_requirements(){
 umask 0022
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 
+# Check whether the user wants to install or not
+check_install_programs
+
 check_requirements
 
 set_process_number
@@ -763,9 +758,6 @@ OPENMPI3_VERSION="3.1.0"
 OPENMPI4_VERSION="4.1.2"
 PYTHON2_VERSION="2.7.18"
 PYTHON3_VERSION="3.9.12"
-
-# Check whether the user wants to install or not
-check_install_programs
 
 # Check whether the environment modules (http://modules.sourceforge.net/) is already installed
 is_enviroment_modules_installed
@@ -802,12 +794,4 @@ else
 fi
 
 echo "Build end"
-function shutdown() {
-    ps -o pid,cmd --tty "$(tty)" | tail -n +2 | while read -ra line; do
-        if [[ ${line[1]} == *sleep* ]]; then
-            kill "${line[0]}"
-        fi
-    done
-}
-
-trap shutdown EXIT
+wait
