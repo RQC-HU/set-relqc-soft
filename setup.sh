@@ -532,6 +532,28 @@ function check_install_programs () {
 		if [ ! "${INSTALL_DIRAC}" = "YES" ] && [ ! "${INSTALL_DIRAC}" = "NO" ]; then
 			INSTALL_DIRAC=$(whether_install_or_not)
 		fi
+		if [ "${INSTALL_DIRAC}" = "YES" ]; then
+			if [ -z "${INSTALL_DIRAC_VERSIONS:-}" ]; then
+				INSTALL_DIRAC_VERSIONS="all"
+		    fi
+			if [ $INSTALL_DIRAC_VERSIONS = "all" ]; then
+				cd "$SCRIPT_PATH/dirac"
+				INSTALL_DIRAC_VERSIONS=$(ls -d -- *)
+				cd "$SCRIPT_PATH"
+			fi
+			echo "You will install DIRAC versions: $INSTALL_DIRAC_VERSIONS"
+			count=0
+			for DIRAC_VERSION in $INSTALL_DIRAC_VERSIONS; do
+			    count=$((count+1))
+				if [ ! -d "$SCRIPT_PATH/dirac/$DIRAC_VERSION" ]; then
+					echo "ERROR: DIRAC version $DIRAC_VERSION not found."
+					echo "Please check the file name (Searched for '$DIRAC_VERSION' in the '$SCRIPT_PATH/dirac' directory). Exiting."
+					exit 1
+				fi
+			done
+			dirac_counts=$count
+			echo "You will install $dirac_counts DIRAC versions."
+		fi
 		PROGRAM_NAME="UTCHEM"
 		if [ -z "${INSTALL_UTCHEM:-}" ]; then
 			INSTALL_UTCHEM=$(whether_install_or_not)
