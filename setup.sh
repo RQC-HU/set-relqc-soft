@@ -308,39 +308,19 @@ function setup_dirac () {
 	pyenv global "$PYTHON3_VERSION"
 	DIRAC_SCR="$HOME/dirac_scr"
 	mkdir -p "$DIRAC_SCR"
-	DIRAC_NPROCS=$(( $SETUP_NPROCS / 3 ))
-	OMPI_VERSION="$OPENMPI3_VERSION" # DIRAC 19.0 and 21.1 use this version of OpenMPI
+	DIRAC_NPROCS=$(( $SETUP_NPROCS / $dirac_counts ))
+	OMPI_VERSION="$OPENMPI4_VERSION" # DIRAC 19.0 and 21.1 use this version of OpenMPI
 	set_ompi_path # set OpenMPI PATH
-	if (( "$DIRAC_NPROCS" <= 1 )); then # Serial build
-		echo "DIRAC will be built in serial mode."
-		DIRAC_NPROCS=$SETUP_NPROCS
-		# Build DIRAC 19.0
-		DIRAC_VERSION="19.0"
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
-		# Build DIRAC 21.1
-		DIRAC_VERSION="21.1"
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
-		# Build DIRAC 22.0
-		DIRAC_VERSION="22.0"
-		OMPI_VERSION="$OPENMPI4_VERSION"
-		set_ompi_path # set OpenMPI PATH
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
-	else # Parallel build
-		echo "DIRAC will be built in parallel mode."
-		# Build DIRAC 19.0
-		DIRAC_VERSION="19.0"
-		OMPI_VERSION="3.1.0"
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
-		# Build DIRAC 21.1
-		DIRAC_VERSION="21.1"
-		OMPI_VERSION="3.1.0"
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
-		# Build DIRAC 22.0
-		DIRAC_VERSION="22.0"
-		OMPI_VERSION="$OPENMPI4_VERSION"
-		set_ompi_path # set OpenMPI PATH
-		build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
-	fi
+	for DIRAC_VERSION in $INSTALL_DIRAC_VERSIONS; do
+		if (( "$DIRAC_NPROCS" <= 1 )); then # Serial build
+			echo "DIRAC will be built in serial mode."
+			DIRAC_NPROCS=$SETUP_NPROCS
+		    build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
+		else # Parallel build
+			echo "DIRAC will be built in parallel mode."
+			build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
+		fi
+	done
 	wait
 	cd "$SCRIPT_PATH"
 }
