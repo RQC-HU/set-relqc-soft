@@ -580,8 +580,6 @@ function set_install_path () {
         echo "INSTALL_PATH is not set"
         INSTALL_PATH="${HOME}/software"
 		echo "INSTALL_PATH is set to default install path: $INSTALL_PATH"
-    else
-		echo "INSTALL_PATH is set to: $INSTALL_PATH"
 	fi
 
 	# If overwrite is not set, change overwrite to NO
@@ -609,7 +607,6 @@ function set_install_path () {
 			exit 1
 		fi
 		echo "OVERWRITE option selected YES. may overwrite the existing path! $INSTALL_PATH."
-		return # No need to check if the path exists, because we are overwriting the files.
 	else
 		if [ -d "$INSTALL_PATH" ]; then
 			echo "$INSTALL_PATH is already exists"
@@ -617,6 +614,11 @@ function set_install_path () {
 			exit 1
 		fi
 	fi
+
+	mkdir -p "${INSTALL_PATH}"
+	INSTALL_PATH=$(cd "$(dirname "${INSTALL_PATH}")"; pwd)/$(basename "$INSTALL_PATH")
+	echo "INSTALL_PATH is set to: $INSTALL_PATH"
+
 }
 
 function is_enviroment_modules_installed(){
