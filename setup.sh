@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+function trap_sigint() {
+    echo "trap is detected(sigint)"
+	exit 1
+}
+trap trap_sigint sigint
+
 function setup_molcas () {
 	# Configure Molcas
 	echo "Starting Molcas setup..."
@@ -813,3 +819,4 @@ else
 fi
 
 echo "Build end"
+wait
