@@ -70,5 +70,7 @@ jobs:
           printenv >> $GITHUB_ENV
       - name: Build and test DIRAC
         run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=2 INSTALL_DIRAC=YES INSTALL_DIRAC_VERSIONS=${{ matrix.dirac_version }} INSTALL_MOLCAS=NO INSTALL_UTCHEM=NO bash setup.sh
-      - name: Check DIRAC test result
+      - name: Check DIRAC failed tests result
         run: cat $HOME/softwares/dirac/${{ matrix.dirac_version }}/test_results/LastTestsFailed.log
+      - name: Check DIRAC test result
+        run: cat $HOME/softwares/dirac/${{ matrix.dirac_version }}/test_results/LastTest.log
