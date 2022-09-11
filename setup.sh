@@ -746,6 +746,14 @@ function check_requirements(){
 umask 0022
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 
+# Check whether the user wants to install or not
+check_install_programs
+
+check_requirements
+
+set_process_number
+set_install_path
+
 # Software path
 MODULEFILES="${INSTALL_PATH}/modulefiles"
 CMAKE="${INSTALL_PATH}/cmake"
@@ -760,14 +768,6 @@ OPENMPI3_VERSION="3.1.0"
 OPENMPI4_VERSION="4.1.2"
 PYTHON2_VERSION="2.7.18"
 PYTHON3_VERSION="3.9.12"
-
-# Check whether the user wants to install or not
-check_install_programs
-
-check_requirements
-
-set_process_number
-set_install_path
 
 # Check whether the environment modules (http://modules.sourceforge.net/) is already installed
 is_enviroment_modules_installed
