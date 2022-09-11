@@ -356,6 +356,7 @@ function setup_python () {
 		echo "export PYENV_ROOT=\"$PYENVROOT\"" >> "$HOME/.bashrc"
 		echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >> "$HOME/.bashrc"
 		echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
+		export MAKE_OPTS="-j${SETUP_NPROCS}"
 		pyenv install "$PYTHON2_VERSION"
 		pyenv install "$PYTHON3_VERSION"
 	fi
