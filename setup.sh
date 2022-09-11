@@ -250,14 +250,18 @@ function setup_utchem () {
 }
 
 function run_dirac_testing () {
-	echo "START DIRAC-${DIRAC_VERSION} ${TEST_TYPE} test!!"
+	echo "START DIRAC-${DIRAC_VERSION} test!!"
+	TEST_NPROCS=${DIRAC_NPROCS}
+    mkdir -p "$DIRAC_BASEDIR"/test_results
     export DIRAC_MPI_COMMAND="mpirun -np $TEST_NPROCS"
 	set +e
 	make test
 	set -e
-	cp -f Testing/Temporary/LastTest.log "$DIRAC_BASEDIR/test_results/$TEST_TYPE"
+	cp -f Testing/Temporary/LastTest.log "$DIRAC_BASEDIR/test_results"
 	if [ -f Testing/Temporary/LastTestsFailed.log ]; then
-	cp -f Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR/test_results/$TEST_TYPE"
+		cp -f Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR/test_results"
+	else
+		echo "NO TESTS FAILED" > "$DIRAC_BASEDIR/test_results/LastTestsFailed.log"
 	fi
 }
 
@@ -284,15 +288,6 @@ function build_dirac () {
 	cp -f "${DIRAC_BASEDIR}/${DIRAC_VERSION}" "${DIRAC_MODULE_DIR}"
 	echo "module load openmpi/${OMPI_VERSION}-intel" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
 	echo "prepend-path  PATH	${DIRAC_BASEDIR}/share/dirac" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
-	# Serial test
-	TEST_TYPE="serial"
-	TEST_NPROCS=1
-	mkdir -p "$DIRAC_BASEDIR"/test_results/serial
-	run_dirac_testing
-	# Parallel test
-	TEST_TYPE="parallel"
-	TEST_NPROCS=${DIRAC_NPROCS}
-    mkdir -p "$DIRAC_BASEDIR"/test_results/parallel
 	run_dirac_testing
 	cd "$SCRIPT_PATH"
 }
