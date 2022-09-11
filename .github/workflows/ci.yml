@@ -34,6 +34,9 @@ jobs:
         run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=4 INSTALL_DIRAC=NO INSTALL_MOLCAS=NO INSTALL_UTCHEM=NO bash setup.sh
   build-dirac:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dirac_version: [19.0, 21.1, 22.0]
     env:
       KEYVERSION: v1
       FC: ifort
@@ -62,4 +65,4 @@ jobs:
           source /opt/intel/oneapi/setvars.sh
           printenv >> $GITHUB_ENV
       - name: minimal-building
-        run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=4 INSTALL_DIRAC=YES INSTALL_MOLCAS=NO INSTALL_UTCHEM=NO bash setup.sh
+        run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=2 INSTALL_DIRAC=YES INSTALL_DIRAC_VERSIONS=${{ matrix.dirac_version }} INSTALL_MOLCAS=NO INSTALL_UTCHEM=NO bash setup.sh
