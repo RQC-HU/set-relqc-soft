@@ -255,7 +255,8 @@ function run_dirac_testing () {
     mkdir -p "$DIRAC_BASEDIR"/test_results
     export DIRAC_MPI_COMMAND="mpirun -np $TEST_NPROCS"
 	set +e
-	make test
+	ctest "-j${TEST_NPROCS} -L short"
+	# make test
 	set -e
 	cp -f Testing/Temporary/LastTest.log "$DIRAC_BASEDIR/test_results"
 	if [ -f Testing/Temporary/LastTestsFailed.log ]; then
