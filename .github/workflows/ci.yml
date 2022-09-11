@@ -36,9 +36,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dirac_version: [19.0, 21.1, 22.0]
+        dirac_version: ["19.0", "21.1", "22.0"]
     env:
-      KEYVERSION: v1
+      KEYVERSION: v2
       FC: ifort
     steps:
       - uses: actions/checkout@v3
