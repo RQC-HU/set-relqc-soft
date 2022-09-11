@@ -708,6 +708,10 @@ function check_requirements(){
 		err_not_installed "tar"
 		exit 1
 	fi
+	if ! type wc > /dev/null; then
+		err_not_installed "wc"
+		exit 1
+	fi
 	if ! type wget > /dev/null; then
 		err_not_installed "wget"
 		exit 1
