@@ -397,26 +397,10 @@ function build_openmpi() {
 }
 
 function setup_openmpi() {
-	OPENMPI_NPROCS=$(( $SETUP_NPROCS / 2 ))
-	if (( "$OPENMPI_NPROCS < 1" )); then
-		# Serial build
-		echo "CMake will be built in serial mode."
-		# Build OpenMPI 3.1.0 (intel fortran)
-		OMPI_VERSION="$OPENMPI3_VERSION"
-		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log"
-		# Build OpenMPI 4.1.2 (intel fortran)
-		OMPI_VERSION="$OPENMPI4_VERSION"
-		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log"
-	else
-		# Parallel build
-		echo "CMake will be built in parallel mode."
-		# Build OpenMPI 3.1.0 (intel fortran)
-		OMPI_VERSION="$OPENMPI3_VERSION"
-		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log" &
-		# Build OpenMPI 4.1.2 (intel fortran)
-		OMPI_VERSION="$OPENMPI4_VERSION"
-		build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log" &
-	fi
+	OPENMPI_NPROCS=$SETUP_NPROCS
+	# Build OpenMPI 4.1.2 (intel fortran)
+	OMPI_VERSION="$OPENMPI4_VERSION"
+	build_openmpi 2>&1 | tee "openmpi-$OMPI_VERSION-build-result.log"
 	wait
 	cd "${SCRIPT_PATH}"
 }
