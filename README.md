@@ -44,8 +44,12 @@
 以下のコマンドを実行するとビルドが実行されます  
 
 ```sh
- INSTALL_PATH=/path/to/install SETUP_NPROCS=使用コア数 INSTALL_ALL=YES bash setup.sh
- # (e.g.)
+ INSTALL_PATH=/path/to/install SETUP_NPROCS=使用コア数 INSTALL_ALL=YES bash setup.sh 
+```
+
+e.g.
+```sh
+ # Install All softwares
  INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 INSTALL_ALL=YES bash setup.sh
  # 全体のビルドのログを取りたい場合
  INSTALL_PATH=/path/to/install SETUP_NPROCS=12 INSTALL_ALL=YES bash setup.sh | tee setup.log
