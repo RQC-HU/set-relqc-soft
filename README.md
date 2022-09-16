@@ -2,6 +2,8 @@
 
 相対論的量子化学計算プログラムのビルドを行うスクリプトです
 
+[![build-test](https://github.com/kohei-noda-qcrg/set-relqc-soft/actions/workflows/ci.yml/badge.svg)](https://github.com/kohei-noda-qcrg/set-relqc-soft/actions/workflows/ci.yml)
+
 ## Pre-requirements
 
 ビルドにあたっては以下のコマンド、ツールがセットアップされていることを前提とします
