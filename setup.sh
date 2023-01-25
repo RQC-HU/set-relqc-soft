@@ -2,12 +2,116 @@
 set -euo pipefail
 
 function trap_sigint() {
-    echo "trap is detected(sigint)"
-	exit 1
+	echo "trap is detected(sigint)"
+	# exit with SIGINT
+	exit 130 # 128 + 2(SIGINT)
 }
 trap trap_sigint sigint
 
-function setup_molcas () {
+function print_usage() {
+	echo "Usage: $0 [options]"
+	echo "Options:"
+	echo "  --help|-h: print this help"
+	echo "  --all|-a: install all packages"
+	echo "  --molcas: install Molcas"
+	echo "  --utchem: install UTChem"
+	echo "  --dirac: install Dirac"
+	echo "  --dirac-versions <versions>: install Dirac versions"
+	echo "  --prefix <path>: installation path"
+	echo "  --parallel <parallel>: number of processors for build"
+	echo "  --overwrite: overwrite existing installation directory"
+}
+
+function check_parameter() {
+	if [ $# -lt 2 ]; then
+		echo "ERROR: Missing parameter for $1"
+		print_usage
+		exit 1
+	fi
+}
+
+function get_args() {
+	# Default values
+	INSTALL_PATH="$HOME"
+	INSTALL_MOLCAS="NO"
+	INSTALL_UTCHEM="NO"
+	INSTALL_DIRAC="NO"
+	INSTALL_DIRAC_VERSIONS="all"
+	OVERWRITE="NO"
+	SETUP_NPROCS=1
+
+	# Parse arguments
+	while [ $# -gt 0 ]; do
+		case "$1" in
+		--all)
+			INSTALL_MOLCAS="YES"
+			INSTALL_UTCHEM="YES"
+			INSTALL_DIRAC="YES"
+			shift
+			;;
+		--molcas)
+			INSTALL_MOLCAS="YES"
+			shift
+			;;
+		--utchem)
+			INSTALL_UTCHEM="YES"
+			shift
+			;;
+		--dirac)
+			INSTALL_DIRAC="YES"
+			shift
+			;;
+		--dirac-versions)
+			check_parameter "$@"
+			INSTALL_DIRAC_VERSIONS="$2"
+			# INSTALL_DIRAC_VERSIONS is a string, and the components of the string are separated by spaces and are real numbers
+			if ! [[ "$INSTALL_DIRAC_VERSIONS" =~ ^[[:space:]]*[0-9]+([.][0-9]+)*[[:space:]]*$ ]]; then
+				echo "ERROR: Invalid version numbers: $INSTALL_DIRAC_VERSIONS"
+				print_usage
+				exit 1
+			fi
+			shift 2
+			;;
+		--prefix)
+			check_parameter "$@"
+			INSTALL_PATH="$2"
+			shift 2
+			;;
+		--parallel)
+			check_parameter "$@"
+			# check if the $2 is a natural number
+			if ! [[ "$2" =~ ^[1-9][0-9]*$ ]]; then
+				echo "ERROR: Invalid number of processors: $2"
+				print_usage
+				exit 1
+			fi
+			SETUP_NPROCS="$2"
+			shift 2
+			;;
+		--help | -h)
+			print_usage
+			exit 0
+			;;
+		--overwrite)
+			OVERWRITE="YES"
+			shift
+			;;
+		*)
+			echo "ERROR: Invalid argument: $1"
+			print_usage
+			exit 1
+			;;
+		esac
+	done
+
+	echo "INSTALL_MOLCAS: $INSTALL_MOLCAS"
+	echo "INSTALL_UTCHEM: $INSTALL_UTCHEM"
+	echo "INSTALL_DIRAC: $INSTALL_DIRAC"
+	echo "INSTALL_PATH: $INSTALL_PATH"
+	echo "SETUP_NPROCS: $SETUP_NPROCS"
+}
+
+function setup_molcas() {
 	# Configure Molcas
 	echo "Starting Molcas setup..."
 	# Find the directory for the MOLCAS installation
@@ -20,8 +124,9 @@ function setup_molcas () {
 	echo "Start configuring Molcas package"
 	cp -f "$MOLCAS_LICENSE" "$MOLCAS"
 	cp -f "$MOLCAS_TARBALL" "$MOLCAS"
+	# tar extract to the $MOLCAS directory
+	tar -xf "$MOLCAS_TARBALL" -C "$MOLCAS"
 	cd "$MOLCAS"
-	tar -xf "$MOLCAS_TARBALL"
 	# Check if the directory exists
 	if [ ! -d "$MOLCAS_TARBALL_NO_EXTENSION" ]; then
 		echo "ERROR: MOLCAS installation directory not found."
@@ -39,9 +144,11 @@ function setup_molcas () {
 	fi
 	if [ -z "${MOLCAS_COMPILERPATH:-}" ]; then
 		echo "MOLCAS_COMPILERPATH is empty..."
-		MOLCAS_COMPILERPATH="$( which mpiifort | xargs dirname )"
+		MOLCAS_COMPILERPATH="$(which mpiifort | xargs dirname)"
 		echo "MOLCAS_COMPILERPATH is set to $MOLCAS_COMPILERPATH"
 	fi
+	mkdir -p "$HOME/.Molcas"
+	cp "$MOLCAS_LICENSE" "$HOME/.Molcas/license.dat"
 	./fetch && ./configure -compiler intel -parallel -parallel -blas MKL -path "$MOLCAS_COMPILERPATH"
 	ret=$?
 	if [ $ret -ne 0 ]; then
@@ -52,7 +159,8 @@ function setup_molcas () {
 
 	# Setup modulefiles
 	cp -f "$SCRIPT_PATH/molcas/molcas" "${MODULEFILES}"
-	echo "prepend-path  PATH	${HOME}/bin" >> "${MODULEFILES}/utchem"
+	# Replace REPLACE_MOLCASPATH with $HOME/bin in the modulefile
+	sed -i "s|REPLACE_MOLCASPATH|$HOME/bin|g" "${MODULEFILES}/molcas"
 
 	# Build MOLCAS
 	cd "$MOLCAS/$MOLCAS_TARBALL_NO_EXTENSION"
@@ -66,25 +174,24 @@ function setup_molcas () {
 	cd "$SCRIPT_PATH"
 }
 
-function check_one_file_only () {
-    if [ "$( echo "$FILE_NAMES" | wc -l )" -gt 1 ]; then
-        echo "ERROR: Detected multiple $PROGRAM_NAME ${FILE_TYPE}s in $SCRIPT_PATH/$PROGRAM_NAME directory."
-        echo "       Searched for $FILE_TYPE files named '$FIND_CONDITION'."
-        echo "       Please remove all but one file."
-        echo "Detected ${FILE_TYPE}s:"
-        echo "$FILE_NAMES"
-        echo "Exiting."
-        exit 1
-    fi
+function check_one_file_only() {
+	if [ "$(echo "$FILE_NAMES" | wc -l)" -gt 1 ]; then
+		echo "ERROR: Detected multiple $PROGRAM_NAME ${FILE_TYPE}s in $SCRIPT_PATH/$PROGRAM_NAME directory."
+		echo "       Searched for $FILE_TYPE files named '$FIND_CONDITION'."
+		echo "       Please remove all but one file."
+		echo "Detected ${FILE_TYPE}s:"
+		echo "$FILE_NAMES"
+		echo "Exiting."
+		exit 1
+	fi
 }
 
-function test_utchem () {
+function test_utchem() {
 	set +e
 	echo "Start testing UTChem..."
 	failed_test_files=()
 	tests_count=0
-	for TEST_SCRIPT_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh")
-	do
+	for TEST_SCRIPT_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh"); do
 		# DFT_GEOPT="$(echo "$TEST_SCRIPT_PATH" | grep dft.geopt)"
 		# if [ "$DFT_GEOPT" ]; then
 		# 	echo "Skipping test script $TEST_SCRIPT_PATH"
@@ -99,8 +206,7 @@ function test_utchem () {
 			SCRATCH="scratch"
 			TEST_RESULTS="test-results"
 			mkdir -p ${SCRATCH} ${TEST_RESULTS}
-			for ii in *.ut
-			do
+			for ii in *.ut; do
 				echo
 				echo "=================================================================="
 				echo "Testing... $ii"
@@ -109,14 +215,14 @@ function test_utchem () {
 				echo "Output file: ${OUTPUT}"
 				echo "../../boot/utchem -n ${SETUP_NPROCS} -w ${SCRATCH} $ii >& ${TEST_RESULTS}/$OUTPUT"
 
-				../../boot/utchem -n "${SETUP_NPROCS}" -w "${SCRATCH} $ii" > "${TEST_RESULTS}/$OUTPUT" 2>&1
+				../../boot/utchem -n "${SETUP_NPROCS}" -w "${SCRATCH} $ii" >"${TEST_RESULTS}/$OUTPUT" 2>&1
 				date
 				echo "End running test script"
 
 				#<< "#COMMENT"
-				tests_count=$(( $tests_count+1 ))
+				tests_count=$(($tests_count + 1))
 				# a.utout.nproc=1 a.utout.nproc=2 a.utout.nproc=4 => a.utout.nproc=4
-				reference_output=$( ls "$TEST_SCRIPT_DIR/$OUTPUT" | tail -n 1 )
+				reference_output=$(ls "$TEST_SCRIPT_DIR/$OUTPUT" | tail -n 1)
 				result_output="$TEST_SCRIPT_DIR/${TEST_RESULTS}/$OUTPUT"
 				references=($(grep "Total Energy.*=" "$reference_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF " "}'))
 				results=($(grep "Total Energy.*=" "$result_output" | awk '{for(i = 1; i <= NF - 2; i++){printf $i}printf " " $NF " "}'))
@@ -124,7 +230,7 @@ function test_utchem () {
 				echo "Start checking test results for $reference_output and $result_output..."
 				echo "references: " "${references[@]}"
 				echo "results: " "${results[@]}"
-				if [ ${#references[@]} -ne ${#results[@]} ] ; then
+				if [ ${#references[@]} -ne ${#results[@]} ]; then
 					failed_test_files+=("$result_output")
 					echo "ERROR: references and results are not same length"
 					echo "So we don't evaluate the results of Total Energy"
@@ -133,29 +239,28 @@ function test_utchem () {
 					continue
 				fi
 
-				for ((i = 1; i < ${#references[@]}; i+=2));
-				do
-					diff=$( echo "${references[$i]} ${results[$i]}" | awk '{printf $1 - $2}' )
+				for ((i = 1; i < ${#references[@]}; i += 2)); do
+					diff=$(echo "${references[$i]} ${results[$i]}" | awk '{printf $1 - $2}')
 					absdiff=${diff#-}
 					threshold=1e-7
-					is_pass_test=$( echo "${absdiff} ${threshold}" | awk '{if($1 <= $2) {print "YES"} else {print "NO"}}' )
+					is_pass_test=$(echo "${absdiff} ${threshold}" | awk '{if($1 <= $2) {print "YES"} else {print "NO"}}')
 					all_test_passed="YES"
 					echo "Checking abs(reference - result): ${absdiff} <= ${threshold} ? ... ${is_pass_test}"
 
-					if [ "$is_pass_test" = "YES" ] ; then
+					if [ "$is_pass_test" = "YES" ]; then
 						echo "TEST PASSED"
 					else
 						all_test_passed="NO"
 						echo "ERROR: TEST FAILED"
 						echo "threshold = $threshold"
-						echo "Difference between the reference and the result in the calculation of ${references[$((i-1))]} is greater than the threshold."
+						echo "Difference between the reference and the result in the calculation of ${references[$((i - 1))]} is greater than the threshold."
 						echo "references = ${references[$i]} Hartree"
 						echo "results = ${results[$i]} Hartree"
 						echo "abs(diff) = ${absdiff} Hartree"
 						failed_test_files+=("$result_output")
 					fi
 				done
-				if [ $all_test_passed = "YES" ] ; then
+				if [ "$all_test_passed" = "YES" ]; then
 					echo "ALL TESTS PASSED for $result_output"
 				else
 					echo "ERROR: SOME TESTS FAILED for $result_output"
@@ -176,8 +281,7 @@ function test_utchem () {
 	if [ ${#failed_test_files[@]} -ne 0 ]; then
 		echo "ERROR: SOME TESTS FAILED"
 		echo "FAILED TESTS:"
-		for failed_test in "${failed_test_files[@]}"
-		do
+		for failed_test in "${failed_test_files[@]}"; do
 			echo "  $failed_test"
 		done
 	else
@@ -187,7 +291,7 @@ function test_utchem () {
 	set -e
 }
 
-function setup_utchem () {
+function setup_utchem() {
 	echo "Start setup UTChem..."
 	OMPI_VERSION="$OPENMPI4_VERSION"
 	set_ompi_path # set OpenMPI PATH
@@ -202,7 +306,7 @@ function setup_utchem () {
 	cd "${UTCHEM}"
 	mkdir -p "${UTCHEM}/utchem"
 	tar -xf "${UTCHEM_TARBALL}" -C "${UTCHEM}/utchem" --strip-components 1
-    UTCHEM_BUILD_DIR="${UTCHEM}/utchem"
+	UTCHEM_BUILD_DIR="${UTCHEM}/utchem"
 	GA4="${UTCHEM_BUILD_DIR}/ga4-0-2"
 
 	# File location of Patch files and files to patch
@@ -226,14 +330,13 @@ function setup_utchem () {
 	cp -f linux_mpi_ifort_x86_64_i8.config.sh.in linux_ifc.config.sh.in
 	cp -f linux_mpi_ifort_x86_64_i8.makeconfig.in linux_ifc.makeconfig.in
 
-
 	# Configure utchem
 	#   If your system don't have python in /usr/bin, you have to install python 2.x.x to your system
 	#   and add the path where you installed python.
 	#   (e.g. If you installed a python executable file at /home/users/username/python)
 	#   ./configure --python=/home/users/username/python
 	cd "${UTCHEM_BUILD_DIR}"
-	UTCHEM_MPI="$(dirname "$( which mpif77 | xargs dirname )")"
+	UTCHEM_MPI="$(dirname "$(which mpif77 | xargs dirname)")"
 	./configure --mpi="$UTCHEM_MPI" --python=python2 2>&1 | tee "$SCRIPT_PATH/utchem-make.log"
 
 	# Make utchem (${UTCHEM_BUILD_DIR}/boot/utchem is executable file)
@@ -241,7 +344,7 @@ function setup_utchem () {
 
 	# Setup modulefiles
 	cp -f "$SCRIPT_PATH/utchem/utchem" "${MODULEFILES}"
-	echo "prepend-path  PATH	${UTCHEM_BUILD_DIR}/boot" >> "${MODULEFILES}/utchem"
+	echo "prepend-path  PATH	${UTCHEM_BUILD_DIR}/boot" >>"${MODULEFILES}/utchem"
 
 	# Run test script
 	test_utchem 2>&1 | tee "$SCRIPT_PATH/utchem-test.log"
@@ -249,23 +352,21 @@ function setup_utchem () {
 
 }
 
-function run_dirac_testing () {
+function run_dirac_testing() {
 	echo "START DIRAC-${DIRAC_VERSION} test!!"
-	TEST_NPROCS=${DIRAC_NPROCS}
-    mkdir -p "$DIRAC_BASEDIR"/test_results
-    export DIRAC_MPI_COMMAND="mpirun -np $TEST_NPROCS"
+	mkdir -p "$DIRAC_BASEDIR/test_results"
 	set +e
-	make test
+	ctest -L short --parallel "$DIRAC_NPROCS" --test-dir build
 	set -e
 	cp -f Testing/Temporary/LastTest.log "$DIRAC_BASEDIR/test_results"
 	if [ -f Testing/Temporary/LastTestsFailed.log ]; then
 		cp -f Testing/Temporary/LastTestsFailed.log "$DIRAC_BASEDIR/test_results"
 	else
-		echo "NO TESTS FAILED" > "$DIRAC_BASEDIR/test_results/LastTestsFailed.log"
+		echo "NO TESTS FAILED DIRAC version: ${DIRAC_VERSION}" | tee "$DIRAC_BASEDIR/test_results/LastTestsFailed.log"
 	fi
 }
 
-function build_dirac () {
+function build_dirac() {
 	echo "DIRAC NRPOCS : $DIRAC_NPROCS"
 	DIRAC_BASEDIR="$DIRAC/$DIRAC_VERSION"
 	cp -rf "$SCRIPT_PATH/dirac/$DIRAC_VERSION" "$DIRAC"
@@ -276,41 +377,40 @@ function build_dirac () {
 	cd "DIRAC-$DIRAC_VERSION-Source"
 	# Patch DIRAC integer(4) to integer(8) (max_mem)
 	PATCH_MEMCONTROL="$DIRAC_BASEDIR/diff_memcon"
-	patch -p0 --ignore-whitespace < "$PATCH_MEMCONTROL"
+	patch -p0 --ignore-whitespace <"$PATCH_MEMCONTROL"
 	# Configure DIRAC
-	./setup --mpi --fc=mpif90 --cc=mpicc --cxx=mpicxx --mkl=parallel --int64 --extra-fc-flags="-xHost"  --extra-cc-flags="-xHost"  --extra-cxx-flags="-xHost" --prefix="$DIRAC_BASEDIR"
-	cd build
+	./setup --mpi --fc=mpif90 --cc=mpicc --cxx=mpicxx --mkl=parallel --int64 --extra-fc-flags="-xHost" --extra-cc-flags="-xHost" --extra-cxx-flags="-xHost" --prefix="$DIRAC_BASEDIR"
 	# Build DIRAC
-	make -j "$DIRAC_NPROCS" && make install
+	cmake --build build -j "$DIRAC_NPROCS" && cmake --install build
 	# Setup modulefiles
 	DIRAC_MODULE_DIR="${MODULEFILES}/dirac"
 	mkdir -p "${DIRAC_MODULE_DIR}"
 	cp -f "${DIRAC_BASEDIR}/${DIRAC_VERSION}" "${DIRAC_MODULE_DIR}"
-	echo "module load openmpi/${OMPI_VERSION}-intel" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
-	echo "prepend-path  PATH	${DIRAC_BASEDIR}/share/dirac" >> "${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
+	echo "module load openmpi/${OMPI_VERSION}-intel" >>"${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
+	echo "prepend-path  PATH	${DIRAC_BASEDIR}/share/dirac" >>"${DIRAC_MODULE_DIR}/${DIRAC_VERSION}"
 	run_dirac_testing
 	cd "$SCRIPT_PATH"
 }
 
-function set_ompi_path () {
+function set_ompi_path() {
 	PATH="${OPENMPI}/${OMPI_VERSION}-intel/bin:$PATH"
 	LIBRARY_PATH="${OPENMPI}/${OMPI_VERSION}-intel/lib:$LIBRARY_PATH"
 	LD_LIBRARY_PATH="${OPENMPI}/${OMPI_VERSION}-intel/lib:$LD_LIBRARY_PATH"
 }
 
-function setup_dirac () {
+function setup_dirac() {
 	cd "$SCRIPT_PATH"
 	pyenv global "$PYTHON3_VERSION"
 	DIRAC_SCR="$HOME/dirac_scr"
 	mkdir -p "$DIRAC_SCR"
-	DIRAC_NPROCS=$(( $SETUP_NPROCS / $dirac_counts ))
+	DIRAC_NPROCS=$(($SETUP_NPROCS / $dirac_counts))
 	OMPI_VERSION="$OPENMPI4_VERSION" # DIRAC 19.0 and 21.1 use this version of OpenMPI
-	set_ompi_path # set OpenMPI PATH
+	set_ompi_path                    # set OpenMPI PATH
 	for DIRAC_VERSION in $INSTALL_DIRAC_VERSIONS; do
-		if (( "$DIRAC_NPROCS" <= 1 )); then # Serial build
+		if (("$DIRAC_NPROCS" <= 1)); then # Serial build
 			echo "DIRAC will be built in serial mode."
 			DIRAC_NPROCS=$SETUP_NPROCS
-		    build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
+			build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log"
 		else # Parallel build
 			echo "DIRAC will be built in parallel mode."
 			build_dirac 2>&1 | tee "dirac-$DIRAC_VERSION-build-result.log" &
@@ -320,7 +420,7 @@ function setup_dirac () {
 	cd "$SCRIPT_PATH"
 }
 
-function setup_python () {
+function setup_python() {
 	echo "Start python setup..."
 	PYENVROOT="$INSTALL_PATH/.pyenv"
 	SKIP_PYENV_INSTALL="Y"
@@ -332,20 +432,20 @@ function setup_python () {
 	export PYENV_ROOT="$INSTALL_PATH/.pyenv"
 	export PATH="$PYENV_ROOT/bin:$PATH"
 	eval "$(pyenv init -)"
-	echo "$PYENV_ROOT , $INSTALL_PATH, skip? : $SKIP_PYENV_INSTALL" > "$SCRIPT_PATH/python-version.log" 2>&1
+	echo "$PYENV_ROOT , $INSTALL_PATH, skip? : $SKIP_PYENV_INSTALL" >"$SCRIPT_PATH/python-version.log" 2>&1
 	if [ "$SKIP_PYENV_INSTALL" = "N" ]; then
-		echo "export PYENV_ROOT=\"$PYENVROOT\"" >> "$HOME/.bashrc"
-		echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >> "$HOME/.bashrc"
-		echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
+		echo "export PYENV_ROOT=\"$PYENVROOT\"" >>"$HOME/.bashrc"
+		echo "command -v pyenv >/dev/null || export PATH=\"$PYENVROOT/bin:\$PATH\"" >>"$HOME/.bashrc"
+		echo 'eval "$(pyenv init -)"' >>"$HOME/.bashrc"
 		export MAKE_OPTS="-j${SETUP_NPROCS}"
 		pyenv install "$PYTHON2_VERSION"
 		pyenv install "$PYTHON3_VERSION"
 	fi
 	pyenv global "$PYTHON2_VERSION"
-	python -V >> "$SCRIPT_PATH/python-version.log" 2>&1
+	python -V >>"$SCRIPT_PATH/python-version.log" 2>&1
 }
 
-function setup_cmake () {
+function setup_cmake() {
 	echo "Start cmake setup..."
 	mkdir -p "${CMAKE}"
 	mkdir -p "${MODULEFILES}/cmake"
@@ -354,9 +454,9 @@ function setup_cmake () {
 	# ${CMAKE} にコピーされたtarballは使わないが、あとからどのtarballを使ってビルドしたか確認しやすくするためにコピーしておく
 	cp -f "${SCRIPT_PATH}/cmake/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" "${CMAKE}"
 	cp -f "${SCRIPT_PATH}/cmake/${CMAKE_VERSION}" "${MODULEFILES}/cmake"
-	echo "prepend-path    PATH    ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/bin" >> "${MODULEFILES}/cmake/${CMAKE_VERSION}"
-	echo "prepend-path    MANPATH ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/man" >> "${MODULEFILES}/cmake/${CMAKE_VERSION}"
-    # module load "cmake/${CMAKE_VERSION}" && cmake --version
+	echo "prepend-path    PATH    ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/bin" >>"${MODULEFILES}/cmake/${CMAKE_VERSION}"
+	echo "prepend-path    MANPATH ${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/man" >>"${MODULEFILES}/cmake/${CMAKE_VERSION}"
+	# module load "cmake/${CMAKE_VERSION}" && cmake --version
 	PATH=${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/bin:$PATH
 	MANPATH=${CMAKE}/cmake-${CMAKE_VERSION}-linux-x86_64/man:$MANPATH
 	cd "${SCRIPT_PATH}"
@@ -370,12 +470,13 @@ function build_openmpi() {
 	mkdir -p "${OPENMPI}/${OMPI_VERSION}-intel/build"
 	tar -xf "${OMPI_TARBALL}" -C "${OPENMPI}/${OMPI_VERSION}-intel/build" --strip-components 1
 	cd "${OPENMPI}/${OMPI_VERSION}-intel/build"
-	./configure CC=icc CXX=icpc FC=ifort FCFLAGS=-i8  CFLAGS=-m64  CXXFLAGS=-m64 --enable-mpi-cxx --enable-mpi-fortran=usempi --prefix="${OMPI_INSTALL_PREFIX}"
+	./configure CC=icc CXX=icpc FC=ifort FCFLAGS=-i8 CFLAGS=-m64 CXXFLAGS=-m64 --enable-mpi-cxx --enable-mpi-fortran=usempi --prefix="${OMPI_INSTALL_PREFIX}"
 	make -j "$OPENMPI_NPROCS" && make install && make check
 	mkdir -p "${MODULEFILES}/openmpi"
 	cp -f "${SCRIPT_PATH}/openmpi/${OMPI_VERSION}-intel" "${MODULEFILES}/openmpi"
-	echo "prepend-path	PATH			${OMPI_INSTALL_PREFIX}/bin" >> "${MODULEFILES}/openmpi/${OMPI_VERSION}-intel"
-	echo "prepend-path	LD_LIBRARY_PATH	${OMPI_INSTALL_PREFIX}/lib"	>> "${MODULEFILES}/openmpi/${OMPI_VERSION}-intel"
+	echo "prepend-path	PATH			${OMPI_INSTALL_PREFIX}/bin" >>"${MODULEFILES}/openmpi/${OMPI_VERSION}-intel"
+	echo "prepend-path	LIBRARY_PATH	${OMPI_INSTALL_PREFIX}/lib" >>"${MODULEFILES}/openmpi/${OMPI_VERSION}-intel"
+	echo "prepend-path	LD_LIBRARY_PATH	${OMPI_INSTALL_PREFIX}/lib" >>"${MODULEFILES}/openmpi/${OMPI_VERSION}-intel"
 }
 
 function setup_openmpi() {
@@ -387,14 +488,14 @@ function setup_openmpi() {
 	cd "${SCRIPT_PATH}"
 }
 
-function set_process_number () {
-	expr $SETUP_NPROCS / 2 > /dev/null 2>&1 || SETUP_NPROCS=1 # Is $SETUP_NPROCS a number? If not, set it to 1.
-	MAX_NPROCS=$( cpuinfo  | grep "Processors(CPUs)" | awk '{print $3}' ) # Get the number of CPUs.
-	if (( "$SETUP_NPROCS" < 0 )); then # invalid number of processes (negative numbers, etc.)
+function set_process_number() {
+	expr $SETUP_NPROCS / 2 >/dev/null 2>&1 || SETUP_NPROCS=1           # Is $SETUP_NPROCS a number? If not, set it to 1.
+	MAX_NPROCS=$(cpuinfo | grep "Processors(CPUs)" | awk '{print $3}') # Get the number of CPUs.
+	if (("$SETUP_NPROCS" < 0)); then                                   # invalid number of processes (negative numbers, etc.)
 		echo "invalid number of processes: $SETUP_NPROCS"
 		echo "use default number of processes: 1"
 		SETUP_NPROCS=1
-	elif (( "$SETUP_NPROCS > $MAX_NPROCS" )); then # number of processes is larger than the number of processors
+	elif (("$SETUP_NPROCS > $MAX_NPROCS")); then # number of processes is larger than the number of processors
 		echo "number of processors you want to use: $SETUP_NPROCS"
 		echo "number of processors you can use: $MAX_NPROCS"
 		echo "use max number of processes: $MAX_NPROCS"
@@ -402,7 +503,7 @@ function set_process_number () {
 	fi
 }
 
-function check_molcas_files () {
+function check_molcas_files() {
 
 	MOLCAS_LICENSE=$(find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "license*")
 	MOLCAS_TARBALL=$(find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "molcas*tar*")
@@ -419,7 +520,7 @@ function check_molcas_files () {
 		exit 1
 	fi
 
-    # Check if the number of license file and tarball is one in the directory, respectively.
+	# Check if the number of license file and tarball is one in the directory, respectively.
 	FILE_NAMES="$MOLCAS_LICENSE"
 	FILE_TYPE="license"
 	FIND_CONDITION="license*"
@@ -433,7 +534,7 @@ function check_molcas_files () {
 	check_one_file_only
 }
 
-function check_utchem_files () {
+function check_utchem_files() {
 
 	UTCHEM_PATCH=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
 	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
@@ -458,7 +559,7 @@ function check_utchem_files () {
 	check_one_file_only
 }
 
-function check_files_and_dirs () {
+function check_files_and_dirs() {
 	if [ "$INSTALL_UTCHEM" == "YES" ] || [ "$INSTALL_DIRAC" == "YES" ]; then
 		mkdir -p "${OPENMPI}"
 	fi
@@ -475,107 +576,64 @@ function check_files_and_dirs () {
 	fi
 }
 
-function check_install_programs () {
-	if [ -z "${INSTALL_ALL:-}" ]; then
-		INSTALL_ALL="NO"
-	fi
-	if [ "${INSTALL_ALL}" == "YES" ]; then
-		INSTALL_DIRAC="YES"
-		INSTALL_MOLCAS="YES"
-		INSTALL_UTCHEM="YES"
-	else
-		PROGRAM_NAME="MOLCAS"
-		if [ -z "${INSTALL_MOLCAS:-}" ]; then
-			INSTALL_MOLCAS=$(whether_install_or_not)
+function check_install_programs() {
+	if [ "${INSTALL_DIRAC}" = "YES" ]; then
+		if [ -z "${INSTALL_DIRAC_VERSIONS:-}" ]; then
+			INSTALL_DIRAC_VERSIONS="all"
 		fi
-		if [ ! "${INSTALL_MOLCAS}" = "YES" ] && [ ! "${INSTALL_MOLCAS}" = "NO" ]; then
-			INSTALL_MOLCAS=$(whether_install_or_not)
+		if [ "$INSTALL_DIRAC_VERSIONS" = "all" ]; then
+			cd "$SCRIPT_PATH/dirac"
+			INSTALL_DIRAC_VERSIONS=$(ls -d -- *)
+			cd "$SCRIPT_PATH"
 		fi
-		PROGRAM_NAME="DIRAC"
-		if [ -z "${INSTALL_DIRAC:-}" ]; then
-			INSTALL_DIRAC=$(whether_install_or_not)
-		fi
-		if [ ! "${INSTALL_DIRAC}" = "YES" ] && [ ! "${INSTALL_DIRAC}" = "NO" ]; then
-			INSTALL_DIRAC=$(whether_install_or_not)
-		fi
-		if [ "${INSTALL_DIRAC}" = "YES" ]; then
-			if [ -z "${INSTALL_DIRAC_VERSIONS:-}" ]; then
-				INSTALL_DIRAC_VERSIONS="all"
-		    fi
-			if [ $INSTALL_DIRAC_VERSIONS = "all" ]; then
-				cd "$SCRIPT_PATH/dirac"
-				INSTALL_DIRAC_VERSIONS=$(ls -d -- *)
-				cd "$SCRIPT_PATH"
+		echo "You will install DIRAC versions:"
+		echo "$INSTALL_DIRAC_VERSIONS"
+		count=0
+		for DIRAC_VERSION in $INSTALL_DIRAC_VERSIONS; do
+			count=$((count + 1))
+			if [ ! -d "$SCRIPT_PATH/dirac/$DIRAC_VERSION" ]; then
+				echo "ERROR: DIRAC version $DIRAC_VERSION not found."
+				echo "Please check the file name (Searched for '$DIRAC_VERSION' in the '$SCRIPT_PATH/dirac' directory). Exiting."
+				exit 1
 			fi
-			echo "You will install DIRAC versions: $INSTALL_DIRAC_VERSIONS"
-			count=0
-			for DIRAC_VERSION in $INSTALL_DIRAC_VERSIONS; do
-			    count=$((count+1))
-				if [ ! -d "$SCRIPT_PATH/dirac/$DIRAC_VERSION" ]; then
-					echo "ERROR: DIRAC version $DIRAC_VERSION not found."
-					echo "Please check the file name (Searched for '$DIRAC_VERSION' in the '$SCRIPT_PATH/dirac' directory). Exiting."
-					exit 1
-				fi
-			done
-			dirac_counts=$count
-			echo "You will install $dirac_counts DIRAC versions."
-		fi
-		PROGRAM_NAME="UTCHEM"
-		if [ -z "${INSTALL_UTCHEM:-}" ]; then
-			INSTALL_UTCHEM=$(whether_install_or_not)
-		fi
-		if [ ! "${INSTALL_UTCHEM}" = "YES" ] && [ ! "${INSTALL_UTCHEM}" = "NO" ]; then
-			INSTALL_UTCHEM=$(whether_install_or_not)
-		fi
+		done
+		dirac_counts=$count
+		echo "You will install $dirac_counts DIRAC versions."
 	fi
 
-	INSTALL_PROGRAMS=("CMake (https://cmake.org/)")
+	install_programs=("CMake (https://cmake.org/)")
 	if [ "$INSTALL_MOLCAS" == "YES" ]; then
-		INSTALL_PROGRAMS+=("Molcas (https://molcas.org/)")
+		install_programs+=("Molcas (https://molcas.org/)")
 	fi
 	if [ "$INSTALL_DIRAC" == "YES" ]; then
-		INSTALL_PROGRAMS+=("DIRAC (http://diracprogram.org/)")
+		install_programs+=("DIRAC (http://diracprogram.org/)")
 	fi
 	if [ "$INSTALL_UTCHEM" == "YES" ]; then
-		INSTALL_PROGRAMS+=("UTChem (http://ccl.scc.kyushu-u.ac.jp/~nakano/papers/lncs-2660-84.pdf)")
+		install_programs+=("UTChem (http://ccl.scc.kyushu-u.ac.jp/~nakano/papers/lncs-2660-84.pdf)")
 	fi
 	if [ "$INSTALL_UTCHEM" == "YES" ] || [ "$INSTALL_DIRAC" == "YES" ]; then
-		INSTALL_PROGRAMS+=("OpenMPI (https://www.open-mpi.org/)")
+		install_programs+=("OpenMPI (https://www.open-mpi.org/)")
 	fi
 
 	echo "The following programs will be installed:"
-	for PROGRAM in "${INSTALL_PROGRAMS[@]}"
-	do
-		echo "$PROGRAM" | tee -a "${SCRIPT_PATH}/install-programs.log"
+	# if install-programs.log exists, remove it
+	if [ -f "${SCRIPT_PATH}/install-programs.log" ]; then
+		rm "${SCRIPT_PATH}/install-programs.log"
+	fi
+	for program in "${install_programs[@]}"; do
+		echo "$program" | tee -a "${SCRIPT_PATH}/install-programs.log"
 	done
-	echo ""
 }
 
-function whether_install_or_not() {
-    ANS="NO"
-    read -p "Do you want to install $PROGRAM_NAME? (y/N)" yn
-    case $yn in
-        [Yy]* ) ANS="YES";;
-        [Nn]* ) ANS="NO";;
-        * ) ANS="NO";;
-    esac
-    echo $ANS
-}
-
-function set_install_path () {
+function set_install_path() {
 	# Check if the variable is set
-    if [ -z "${INSTALL_PATH:-}" ]; then
-        echo "INSTALL_PATH is not set"
-        INSTALL_PATH="${HOME}/software"
+	if [ -z "${INSTALL_PATH:-}" ]; then
+		echo "INSTALL_PATH is not set"
+		INSTALL_PATH="${HOME}/software"
 		echo "INSTALL_PATH is set to default install path: $INSTALL_PATH"
 	fi
 
-	# If overwrite is not set, change overwrite to NO
-	if [ -z "${OVERWRITE:-}" ]; then
-		OVERWRITE="NO"
-	fi
-
-    # Check if the path exists
+	# Check if the path exists
 	# OVERWRITE is set to YES if the user wants to overwrite the existing installation
 	if [ "${OVERWRITE}" = "YES" ]; then
 		echo "!!!!!!!!!!!!!!!!!!!!! Warning: OVERWRITE option selected YES !!!!!!!!!!!!!!!!!!!!!"
@@ -585,9 +643,9 @@ function set_install_path () {
 		ANS="NO"
 		read -p "Do you want to set OVERWRITE option selected YES? (y/N)" yn
 		case $yn in
-			[Yy]* ) ANS="YES";;
-			[Nn]* ) ANS="NO";;
-			* ) ANS="NO";;
+		[Yy]*) ANS="YES" ;;
+		[Nn]*) ANS="NO" ;;
+		*) ANS="NO" ;;
 		esac
 		echo "Your answer is $ANS"
 		if [ "$ANS" = "NO" ]; then
@@ -603,21 +661,22 @@ function set_install_path () {
 		fi
 	fi
 
-	mkdir -p "${INSTALL_PATH}"
-	INSTALL_PATH=$(cd "$(dirname "${INSTALL_PATH}")"; pwd)/$(basename "$INSTALL_PATH")
+	INSTALL_PATH="$user_submitted_dir/$INSTALL_PATH"
+	# INSTALL_PATH=$(cd "$(dirname "${INSTALL_PATH}")"pwd)/$(basename "$INSTALL_PATH")
+	mkdir -p "${user_submitted_dir}/${INSTALL_PATH}"
 	echo "INSTALL_PATH is set to: $INSTALL_PATH"
 
 }
 
-function is_enviroment_modules_installed(){
+function is_enviroment_modules_installed() {
 	echo "Checking if the Enviroment Modules is already installed..."
 	mkdir -p "${MODULEFILES}"
-	if type module > /dev/null; then
+	if type module >/dev/null; then
 		echo "Enviroment Modules is installed"
 		echo "You can use module command to load the Modules under $MODULEFILES in your bashrc file."
 		echo "(e.g. module use --append ${MODULEFILES})"
 		module use --append "${MODULEFILES}"
-		echo "module use --append ${MODULEFILES}" >> "$HOME/.bashrc"
+		echo "module use --append ${MODULEFILES}" >>"$HOME/.bashrc"
 		echo "Info: Add the modulefiles to your bashrc file. (module use --append ${MODULEFILES})"
 	else
 		echo "Enviroment Modules is not installed"
@@ -627,119 +686,18 @@ function is_enviroment_modules_installed(){
 	fi
 }
 
-
-function err_not_installed(){
-	echo "==========================================================================="
-	echo "Error: $1 is not installed"
-	echo "$1 command is not installed. You must install $1 and try again."
-	echo "==========================================================================="
-	exit 1
-}
-
-function err_compiler(){
-	echo "================================================================================"
-	echo "$1 ($2) doesn't exist. You must install $2."
-	echo "A simple setup is to install all packages Intel® oneAPI Base Toolkit and Intel® oneAPI HPC Toolkit."
-	echo "But more specifically, you need to install the following packages:"
-	echo "- Intel® oneAPI Math Kernel Library (MKL) (included in Intel® oneAPI Base Toolkit)"
-	echo "- Intel® oneAPI DPC++/C++ Compiler (included in Intel® oneAPI Base Toolkit)"
-	echo "- Intel® MPI Library (included in Intel® oneAPI HPC Toolkit)"
-	echo "- Intel® Fortran Compiler (included in Intel® oneAPI HPC Toolkit)"
-	echo "- Intel® MPI Library (included in Intel® oneAPI HPC Toolkit)"
-	echo "When setting up oneAPI on a shared server,"
-	echo "please refer to https://www.intel.com/content/www/us/en/develop/documentation/oneapi-programming-guide/top/oneapi-development-environment-setup/use-modulefiles-with-linux.html "
-	echo "to set up with Enviroment Modules."
-	echo "================================================================================"
-	exit 1
-}
-
-function check_requirements(){
-	variable=(/'a' 'b' 'c'/)
-	echo "${variable[@]}" > /dev/null
-	if ! type make > /dev/null; then
-		err_not_installed "make"
-		exit 1
-	fi
-	if ! type git > /dev/null; then
-		err_not_installed "git"
-		exit 1
-	fi
-	if ! type patch > /dev/null; then
-		err_not_installed "patch"
-		exit 1
-	fi
-	if ! type awk > /dev/null; then
-		err_not_installed "awk"
-		exit 1
-	fi
-	if ! type expr > /dev/null; then
-		err_not_installed "expr"
-		exit 1
-	fi
-	num=-1
-	a=$(($num / 2))||1
-	if ! type find > /dev/null; then
-		err_not_installed "find"
-		exit 1
-	fi
-	if ! type grep > /dev/null; then
-		err_not_installed "grep"
-		exit 1
-	fi
-	if ! type kill > /dev/null; then
-		err_not_installed "kill"
-		exit 1
-	fi
-	if ! type read > /dev/null; then
-		err_not_installed "read"
-		exit 1
-	fi
-	if ! type tar > /dev/null; then
-		err_not_installed "tar"
-		exit 1
-	fi
-	if ! type wc > /dev/null; then
-		err_not_installed "wc"
-		exit 1
-	fi
-	if ! type wget > /dev/null; then
-		err_not_installed "wget"
-		exit 1
-	fi
-	if ! type ifort > /dev/null; then
-		err_compiler "Intel® Fortran compiler" "ifort"
-	fi
-	if [ "${INSTALL_MOLCAS}" = "YES" ]; then
-		if ! type mpiifort > /dev/null; then
-			err_compiler "Intel® MPI Library" "mpiifort"
-		fi
-	fi
-	if ! type icc > /dev/null; then
-		err_compiler "Intel® C compiler" "icc"
-	fi
-	if ! type icpc > /dev/null; then
-		err_compiler "Intel® C++ Library" "icpc"
-	fi
-	if [ -z "${MKLROOT:-}" ]; then
-		echo "==========================================================================="
-		echo "Error: Environmental variable \$MKLROOT is not set."
-		echo "You must set \$MKLROOT to the path of Intel® oneAPI Math Kernel Library"
-		echo "==========================================================================="
-		exit 1
-	fi
-	echo "All requirements are configured. Proceeding..."
-
-}
-
 ## Main ##
 \unalias -a
 umask 0022
+user_submitted_dir=$(pwd)
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
-
+get_args "$@"
 # Check whether the user wants to install or not
 check_install_programs
 
-check_requirements
+bash "$SCRIPT_PATH/check_requirements"
+echo "All requirements are configured. Proceeding..."
+# exit 0
 
 set_process_number
 set_install_path
@@ -754,7 +712,6 @@ UTCHEM="${INSTALL_PATH}/utchem"
 
 # VERSIONS
 CMAKE_VERSION="3.23.2"
-OPENMPI3_VERSION="3.1.0"
 OPENMPI4_VERSION="4.1.2"
 PYTHON2_VERSION="2.7.18"
 PYTHON3_VERSION="3.9.12"
@@ -785,7 +742,6 @@ if [ "$INSTALL_UTCHEM" == "YES" ]; then
 else
 	echo "Skip utchem installation."
 fi
-
 
 if [ "$INSTALL_DIRAC" == "YES" ]; then
 	setup_dirac

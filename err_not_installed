@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "==========================================================================="
+echo "Error: $1 is not installed"
+echo "$1 command is not installed. You must install $1 and try again."
+echo "==========================================================================="
+exit 1

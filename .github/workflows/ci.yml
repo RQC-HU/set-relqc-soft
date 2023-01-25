@@ -2,8 +2,8 @@ name: build-test
 on:
   push:
     paths:
-    - '**.sh'
-    - '.github/workflows/ci.yml'
+      - "**.sh"
+      - ".github/workflows/ci.yml"
 jobs:
   minimal-build:
     runs-on: ubuntu-latest
@@ -35,7 +35,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh
           printenv >> $GITHUB_ENV
       - name: minimal-building
-        run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=4 INSTALL_DIRAC=NO INSTALL_MOLCAS=NO INSTALL_UTCHEM=NO bash setup.sh
+        run: bash setup.sh --prefix $HOME/softwares --parallel 2
   build-dirac:
     runs-on: ubuntu-latest
     strategy:
@@ -69,7 +69,9 @@ jobs:
           source /opt/intel/oneapi/setvars.sh
           printenv >> $GITHUB_ENV
       - name: Build and test DIRAC
-        run: INSTALL_PATH=$HOME/softwares SETUP_NPROCS=2 INSTALL_DIRAC=YES INSTALL_DIRAC_VERSIONS=${{ matrix.dirac_version }} INSTALL_MOLCAS=NO INSTALL_UTCHEM=NO bash setup.sh
+        run: bash setup.sh --dirac --dirac-versions ${{ matrix.dirac_version }} --prefix $HOME/softwares --parallel 2
+      - name: List DIRAC test result
+        run: ls $HOME/softwares/dirac/${{ matrix.dirac_version }}/test_results
       - name: Check DIRAC failed tests result
         run: cat $HOME/softwares/dirac/${{ matrix.dirac_version }}/test_results/LastTestsFailed.log
       - name: Check DIRAC test result

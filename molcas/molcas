@@ -8,4 +8,5 @@ proc ModulesHelp { } {
 }
 module-whatis "molcas"
 
+prepend-path  PATH	REPLACE_MOLCASPATH
 # ----

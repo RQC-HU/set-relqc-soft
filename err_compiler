@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "================================================================================"
+echo "$1 ($2) doesn't exist. You must install $2."
+echo "A simple setup is to install all packages Intel® oneAPI Base Toolkit and Intel® oneAPI HPC Toolkit."
+echo "But more specifically, you need to install the following packages:"
+echo "- Intel® oneAPI Math Kernel Library (MKL) (included in Intel® oneAPI Base Toolkit)"
+echo "- Intel® oneAPI DPC++/C++ Compiler (included in Intel® oneAPI Base Toolkit)"
+echo "- Intel® MPI Library (included in Intel® oneAPI HPC Toolkit)"
+echo "- Intel® Fortran Compiler (included in Intel® oneAPI HPC Toolkit)"
+echo "- Intel® MPI Library (included in Intel® oneAPI HPC Toolkit)"
+echo "When setting up oneAPI on a shared server,"
+echo "please refer to https://www.intel.com/content/www/us/en/develop/documentation/oneapi-programming-guide/top/oneapi-development-environment-setup/use-modulefiles-with-linux.html "
+echo "to set up with Enviroment Modules."
+echo "================================================================================"
+exit 1

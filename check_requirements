@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_path=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+variable=(/'a' 'b' 'c'/)
+echo "${variable[@]}" >/dev/null
+if ! type make >/dev/null; then
+    bash "$script_path/err_not_installed" "make"
+    exit 1
+fi
+if ! type git >/dev/null; then
+    bash "$script_path/err_not_installed" "git"
+    exit 1
+fi
+if ! type patch >/dev/null; then
+    bash "$script_path/err_not_installed" "patch"
+    exit 1
+fi
+if ! type awk >/dev/null; then
+    bash "$script_path/err_not_installed" "awk"
+    exit 1
+fi
+if ! type expr >/dev/null; then
+    bash "$script_path/err_not_installed" "expr"
+    exit 1
+fi
+num=-1
+a=$(($num / 2)) || 1
+if [ "$a" -ne 0 ]; then
+    echo "==========================================================================="
+    echo "Error: Your bash version is too old. Please update to bash 4.0 or newer."
+    echo "==========================================================================="
+    exit 1
+fi
+if ! type find >/dev/null; then
+    bash "$script_path/err_not_installed" "find"
+    exit 1
+fi
+if ! type grep >/dev/null; then
+    bash "$script_path/err_not_installed" "grep"
+    exit 1
+fi
+if ! type kill >/dev/null; then
+    bash "$script_path/err_not_installed" "kill"
+    exit 1
+fi
+if ! type read >/dev/null; then
+    bash "$script_path/err_not_installed" "read"
+    exit 1
+fi
+if ! type tar >/dev/null; then
+    bash "$script_path/err_not_installed" "tar"
+    exit 1
+fi
+if ! type wc >/dev/null; then
+    bash "$script_path/err_not_installed" "wc"
+    exit 1
+fi
+if ! type wget >/dev/null; then
+    bash "$script_path/err_not_installed" "wget"
+    exit 1
+fi
+if ! type ifort >/dev/null; then
+    bash "$script_path/err_compiler" "Intel® Fortran compiler" "ifort"
+fi
+# is INSTALL_MOLCAS not set?
+if [  -n "${INSTALL_MOLCAS:-}" ]; then
+    if [ "${INSTALL_MOLCAS}" = "YES" ]; then
+        if ! type mpiifort >/dev/null; then
+            bash "$script_path/err_compiler" "Intel® MPI Library" "mpiifort"
+        fi
+    fi
+fi
+if ! type icc >/dev/null; then
+    bash "$script_path/err_compiler" "Intel® C compiler" "icc"
+fi
+if ! type icpc >/dev/null; then
+    bash "$script_path/err_compiler" "Intel® C++ Library" "icpc"
+fi
+if [ -z "${MKLROOT:-}" ]; then
+    echo "==========================================================================="
+    echo "Error: Environmental variable \$MKLROOT is not set."
+    echo "You must set \$MKLROOT to the path of Intel® oneAPI Math Kernel Library"
+    echo "==========================================================================="
+    exit 1
+fi
+echo "All requirements are configured. Proceeding..."
