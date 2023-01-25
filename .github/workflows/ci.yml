@@ -36,7 +36,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh
           printenv >> $GITHUB_ENV
       - name: minimal-building
-        run: bash setup.sh --prefix $HOME/softwares --parallel 2
+        run: bash setup --prefix $HOME/softwares --parallel 2
   build-dirac:
     runs-on: ubuntu-latest
     strategy:
@@ -70,4 +70,4 @@ jobs:
           source /opt/intel/oneapi/setvars.sh
           printenv >> $GITHUB_ENV
       - name: Build and test DIRAC
-        run: bash setup.sh --dirac --dirac-versions ${{ matrix.dirac_version }} --prefix $HOME/softwares --parallel 2
+        run: bash setup --dirac --dirac-versions ${{ matrix.dirac_version }} --prefix $HOME/softwares --parallel 2
