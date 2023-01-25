@@ -71,7 +71,9 @@ jobs:
       - name: Build and test DIRAC
         run: bash setup.sh --dirac --dirac-versions ${{ matrix.dirac_version }} --prefix $HOME/softwares --parallel 2
       - name: List DIRAC test result
-        run: ls $HOME/softwares/dirac/${{ matrix.dirac_version }}/test_results
+        run: |
+          sudo apt install -y tree
+          tree $HOME -L 3
       - name: Check DIRAC failed tests result
         run: cat $HOME/softwares/dirac/${{ matrix.dirac_version }}/test_results/LastTestsFailed.log
       - name: Check DIRAC test result
