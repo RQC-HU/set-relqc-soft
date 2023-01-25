@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+function trap_sigint() {
+	echo "trap is detected(sigint)"
+	# exit with SIGINT
+	exit 130 # 128 + 2(SIGINT)
+}
+trap trap_sigint sigint
+
+
+function print_usage() {
+	echo "Usage: $0 [options]"
+	echo "Options:"
+	echo "  --help|-h: print this help"
+	echo "  --prefix <path>: installation path"
+	echo "  --parallel <parallel>: number of processors for build"
+}
+
+function check_parameter() {
+	if [ $# -lt 2 ]; then
+		echo "ERROR: Missing parameter for $1"
+		print_usage
+		exit 1
+	fi
+}
+
+function get_args() {
+	# Default values
+	INSTALL_PATH="$HOME"
+	SETUP_NPROCS=1
+
+	# Parse arguments
+	while [ $# -gt 0 ]; do
+		case "$1" in
+		--help | -h)
+			print_usage
+			exit 0
+			;;
+		--prefix)
+			check_parameter "$@"
+			INSTALL_PATH="$2"
+			shift 2
+			;;
+		--parallel)
+			check_parameter "$@"
+			# check if the $2 is a natural number
+			if ! [[ "$2" =~ ^[1-9][0-9]*$ ]]; then
+				echo "ERROR: Invalid number of processors: $2"
+				print_usage
+				exit 1
+			fi
+			SETUP_NPROCS="$2"
+			shift 2
+			;;
+		*)
+			echo "ERROR: Invalid argument: $1"
+			print_usage
+			exit 1
+			;;
+		esac
+	done
+
+	echo "INSTALL_PATH: $INSTALL_PATH"
+	echo "SETUP_NPROCS: $SETUP_NPROCS"
+}
+
+function setup_python() {
+	echo "Start python setup..."
+	PYENV_ROOT="$INSTALL_PATH/.pyenv"
+	SKIP_PYENV_INSTALL="Y"
+	# if PYENV_ROOT exists, skip clone
+	if [ ! -d "$PYENV_ROOT" ]; then
+		git clone https://github.com/pyenv/pyenv.git "$PYENV_ROOT"
+		SKIP_PYENV_INSTALL="N"
+	fi
+	export PYENV_ROOT="$PYENV_ROOT"
+	export PATH="$PYENV_ROOT/bin:$PATH"
+	eval "$(pyenv init -)"
+	echo "PYENV_ROOT=$PYENV_ROOT , skip install? : $SKIP_PYENV_INSTALL" | tee "$SCRIPT_PATH/python-version.log"
+	if [ "$SKIP_PYENV_INSTALL" = "N" ]; then
+		echo "export PYENV_ROOT=\"$PYENV_ROOT\"" >>"$HOME/.bashrc"
+		echo "command -v pyenv >/dev/null || export PATH=\"$PYENV_ROOT/bin:\$PATH\"" >>"$HOME/.bashrc"
+		echo "eval \"\$(pyenv init -)\"" >>"$HOME/.bashrc"
+		export MAKE_OPTS="-j${SETUP_NPROCS}"
+		pyenv install "$PYTHON2_VERSION"
+		pyenv install "$PYTHON3_VERSION"
+		pyenv global "$PYTHON3_VERSION" "$PYTHON2_VERSION"
+	fi
+	python -V >>"$SCRIPT_PATH/python-version.log" 2>&1
+}
+
+## Main ##
+\unalias -a
+umask 0022
+SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)"
+
+get_args "$@"
+
+# VERSIONS
+PYTHON2_VERSION="2.7.18"
+PYTHON3_VERSION="3.9.12"
+setup_python
+
+wait
