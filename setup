@@ -723,7 +723,7 @@ check_files_and_dirs
 
 # Install programs
 setup_cmake
-bash "$SCRIPT_PATH/setup-pyenv" --parallel "$SETUP_NPROCS"
+. "$SCRIPT_PATH/setup-pyenv" --parallel "$SETUP_NPROCS"
 
 if [ "$INSTALL_UTCHEM" == "YES" ] || [ "$INSTALL_DIRAC" == "YES" ]; then
 	setup_openmpi
