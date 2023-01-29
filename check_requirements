@@ -5,6 +5,10 @@ script_path=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 variable=(/'a' 'b' 'c'/)
 echo "${variable[@]}" >/dev/null
+if ! type cpuinfo >/dev/null; then
+    bash "$script_path/err_not_installed" "cpuinfo"
+    exit 1
+fi
 if ! type make >/dev/null; then
     bash "$script_path/err_not_installed" "make"
     exit 1
@@ -26,13 +30,8 @@ if ! type expr >/dev/null; then
     exit 1
 fi
 num=-1
-a=$(($num / 2)) || 1
-if [ "$a" -ne 0 ]; then
-    echo "==========================================================================="
-    echo "Error: Your bash version is too old. Please update to bash 4.0 or newer."
-    echo "==========================================================================="
-    exit 1
-fi
+a=$((num / 2)) || 1
+echo "$a">/dev/null
 if ! type find >/dev/null; then
     bash "$script_path/err_not_installed" "find"
     exit 1
