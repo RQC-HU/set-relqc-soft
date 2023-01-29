@@ -2,7 +2,9 @@ name: build-test
 on:
   push:
     paths:
-      - "**.sh"
+      - "setup**"
+      - "err_**"
+      - "check_**"
       - ".github/workflows/ci.yml"
 jobs:
   minimal-build:
