@@ -191,7 +191,8 @@ function test_utchem() {
 	echo "Start testing UTChem..."
 	failed_test_files=()
 	tests_count=0
-	for TEST_SCRIPT_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh"); do
+	test_scripts=$(find "$UTCHEM_BUILD_DIR" -name "test.sh")
+	for TEST_SCRIPT_PATH in $test_scripts; do
 		# DFT_GEOPT="$(echo "$TEST_SCRIPT_PATH" | grep dft.geopt)"
 		# if [ "$DFT_GEOPT" ]; then
 		# 	echo "Skipping test script $TEST_SCRIPT_PATH"
@@ -491,6 +492,13 @@ function check_molcas_files() {
 	MOLCAS_LICENSE=$(find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "license*")
 	MOLCAS_TARBALL=$(find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "molcas*tar*")
 
+	echo "MOLCAS directory:"
+	ls -l "$SCRIPT_PATH/molcas"
+	find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "license*"
+	find "$SCRIPT_PATH/molcas" -maxdepth 1 -name "molcas*tar*"
+	echo "MOLCAS_LICENSE: $MOLCAS_LICENSE"
+	echo "MOLCAS_TARBALL: $MOLCAS_TARBALL"
+
 	# Check if the license file and tarball exist
 	if [ -z "${MOLCAS_LICENSE:-}" ]; then
 		echo "ERROR: MOLCAS License file not found."
@@ -623,19 +631,6 @@ function set_install_path() {
 		echo "Warning: OVERWRITE option selected YES.  may overwrite the existing path! $INSTALL_PATH."
 		echo "If you want to keep the existing path, do not set OVERWRITE to YES."
 		echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-		ANS="NO"
-		read -p "Do you want to set OVERWRITE option selected YES? (y/N)" yn
-		case $yn in
-		[Yy]*) ANS="YES" ;;
-		[Nn]*) ANS="NO" ;;
-		*) ANS="NO" ;;
-		esac
-		echo "Your answer is $ANS"
-		if [ "$ANS" = "NO" ]; then
-			echo "OVERWRITE=YES was rejected by you. Exiting."
-			exit 1
-		fi
-		echo "OVERWRITE option selected YES. may overwrite the existing path! $INSTALL_PATH."
 	else
 		if [ -d "$INSTALL_PATH" ]; then
 			echo "$INSTALL_PATH is already exists"
@@ -680,7 +675,7 @@ check_install_programs
 
 bash "$SCRIPT_PATH/check_requirements"
 echo "All requirements are configured. Proceeding..."
-# exit 0
+
 
 set_process_number
 set_install_path

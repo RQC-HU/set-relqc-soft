@@ -27,7 +27,7 @@ function check_parameter() {
 
 function get_args() {
 	# Default values
-	INSTALL_PATH="$HOME"
+	INSTALL_PATH="${HOME}/software/utchem"
 	INSTALL_UTCHEM="NO"
 	OVERWRITE="NO"
 	SETUP_NPROCS=1
@@ -72,25 +72,13 @@ function get_args() {
 	echo "SETUP_NPROCS: $SETUP_NPROCS"
 }
 
-
-function check_one_file_only() {
-	if [ "$(echo "$FILE_NAMES" | wc -l)" -gt 1 ]; then
-		echo "ERROR: Detected multiple $PROGRAM_NAME ${FILE_TYPE}s in $SCRIPT_PATH/$PROGRAM_NAME directory."
-		echo "       Searched for $FILE_TYPE files named '$FIND_CONDITION'."
-		echo "       Please remove all but one file."
-		echo "Detected ${FILE_TYPE}s:"
-		echo "$FILE_NAMES"
-		echo "Exiting."
-		exit 1
-	fi
-}
-
 function test_utchem() {
 	set +e
 	echo "Start testing UTChem..."
 	failed_test_files=()
 	tests_count=0
-	for TEST_SCRIPT_PATH in $(find "$UTCHEM_BUILD_DIR" -name "test.sh"); do
+	test_scripts=$(find "$UTCHEM_BUILD_DIR" -name "test.sh")
+	for TEST_SCRIPT_PATH in $test_scripts; do
 		HF="$(echo "$TEST_SCRIPT_PATH" | grep Hartree)"
 		DFT="$(echo "$TEST_SCRIPT_PATH" | grep rtddft)"
 		if [ "$HF" ] || [ "$DFT" ]; then
@@ -113,7 +101,7 @@ function test_utchem() {
 				date
 				echo "End running test script"
 
-				tests_count=$(($tests_count + 1))
+				tests_count=$((tests_count + 1))
 				# a.utout.nproc=1 a.utout.nproc=2 a.utout.nproc=4 => a.utout.nproc=4
 				reference_output=$(ls "$TEST_SCRIPT_DIR/$OUTPUT" | tail -n 1)
 				result_output="$TEST_SCRIPT_DIR/${TEST_RESULTS}/$OUTPUT"
@@ -185,11 +173,8 @@ function test_utchem() {
 
 function setup_utchem() {
 	echo "Start setup UTChem..."
-	OMPI_VERSION="$OPENMPI4_VERSION"
 	set_ompi_path # set OpenMPI PATH
 
-	UTCHEM_PATCH=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
-	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
 	cp -f "${UTCHEM_TARBALL}" "${UTCHEM}"
 	cp -rf "${UTCHEM_PATCH}" "${UTCHEM}"
 	PATCHDIR=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
@@ -244,12 +229,19 @@ function setup_utchem() {
 
 }
 
+function check_one_file_only() {
+	if [ "$(echo "$FILE_NAMES" | wc -l)" -gt 1 ]; then
+		echo "ERROR: Detected multiple $PROGRAM_NAME ${FILE_TYPE}s in $SCRIPT_PATH/$PROGRAM_NAME directory."
+		echo "       Searched for $FILE_TYPE files named '$FIND_CONDITION'."
+		echo "       Please remove all but one file."
+		echo "Detected ${FILE_TYPE}s:"
+		echo "$FILE_NAMES"
+		echo "Exiting."
+		exit 1
+	fi
+}
 
 function check_utchem_files() {
-
-	UTCHEM_PATCH=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
-	UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
-
 	# Check if the license file and tarball exist
 	if [ ! -d "${UTCHEM_PATCH}" ]; then
 		echo "ERROR: UTCHEM patches directory not found."
@@ -270,72 +262,6 @@ function check_utchem_files() {
 	check_one_file_only
 }
 
-function check_files_and_dirs() {
-	if [ "$INSTALL_UTCHEM" == "YES" ] || [ "$INSTALL_DIRAC" == "YES" ]; then
-		mkdir -p "${OPENMPI}"
-	fi
-	if [ "$INSTALL_MOLCAS" == "YES" ]; then
-		mkdir -p "${MOLCAS}"
-		check_molcas_files
-	fi
-	if [ "$INSTALL_DIRAC" == "YES" ]; then
-		mkdir -p "${DIRAC}"
-	fi
-	if [ "$INSTALL_UTCHEM" == "YES" ]; then
-		mkdir -p "${UTCHEM}"
-		check_utchem_files
-	fi
-}
-
-function check_install_programs() {
-	if [ "${INSTALL_DIRAC}" = "YES" ]; then
-		if [ -z "${INSTALL_DIRAC_VERSIONS:-}" ]; then
-			INSTALL_DIRAC_VERSIONS="all"
-		fi
-		if [ "$INSTALL_DIRAC_VERSIONS" = "all" ]; then
-			cd "$SCRIPT_PATH/dirac"
-			INSTALL_DIRAC_VERSIONS=$(ls -d -- *)
-			cd "$SCRIPT_PATH"
-		fi
-		echo "You will install DIRAC versions:"
-		echo "$INSTALL_DIRAC_VERSIONS"
-		count=0
-		for DIRAC_VERSION in $INSTALL_DIRAC_VERSIONS; do
-			count=$((count + 1))
-			if [ ! -d "$SCRIPT_PATH/dirac/$DIRAC_VERSION" ]; then
-				echo "ERROR: DIRAC version $DIRAC_VERSION not found."
-				echo "Please check the file name (Searched for '$DIRAC_VERSION' in the '$SCRIPT_PATH/dirac' directory). Exiting."
-				exit 1
-			fi
-		done
-		dirac_counts=$count
-		echo "You will install $dirac_counts DIRAC versions."
-	fi
-
-	install_programs=("CMake (https://cmake.org/)")
-	if [ "$INSTALL_MOLCAS" == "YES" ]; then
-		install_programs+=("Molcas (https://molcas.org/)")
-	fi
-	if [ "$INSTALL_DIRAC" == "YES" ]; then
-		install_programs+=("DIRAC (http://diracprogram.org/)")
-	fi
-	if [ "$INSTALL_UTCHEM" == "YES" ]; then
-		install_programs+=("UTChem (http://ccl.scc.kyushu-u.ac.jp/~nakano/papers/lncs-2660-84.pdf)")
-	fi
-	if [ "$INSTALL_UTCHEM" == "YES" ] || [ "$INSTALL_DIRAC" == "YES" ]; then
-		install_programs+=("OpenMPI (https://www.open-mpi.org/)")
-	fi
-
-	echo "The following programs will be installed:"
-	# if install-programs.log exists, remove it
-	if [ -f "${SCRIPT_PATH}/install-programs.log" ]; then
-		rm "${SCRIPT_PATH}/install-programs.log"
-	fi
-	for program in "${install_programs[@]}"; do
-		echo "$program" | tee -a "${SCRIPT_PATH}/install-programs.log"
-	done
-}
-
 function set_install_path() {
 	# Check if the variable is set
 	if [ -z "${INSTALL_PATH:-}" ]; then
@@ -348,26 +274,16 @@ function set_install_path() {
 	# OVERWRITE is set to YES if the user wants to overwrite the existing installation
 	if [ "${OVERWRITE}" = "YES" ]; then
 		echo "!!!!!!!!!!!!!!!!!!!!! Warning: OVERWRITE option selected YES !!!!!!!!!!!!!!!!!!!!!"
-		echo "Warning: OVERWRITE option selected YES.  may overwrite the existing path! $INSTALL_PATH."
+		echo "Warning: OVERWRITE option selected YES. May overwrite the existing path! $INSTALL_PATH."
 		echo "If you want to keep the existing path, do not set OVERWRITE to YES."
 		echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-		ANS="NO"
-		read -p "Do you want to set OVERWRITE option selected YES? (y/N)" yn
-		case $yn in
-		[Yy]*) ANS="YES" ;;
-		[Nn]*) ANS="NO" ;;
-		*) ANS="NO" ;;
-		esac
-		echo "Your answer is $ANS"
-		if [ "$ANS" = "NO" ]; then
-			echo "OVERWRITE=YES was rejected by you. Exiting."
-			exit 1
-		fi
-		echo "OVERWRITE option selected YES. may overwrite the existing path! $INSTALL_PATH."
 	else
 		if [ -d "$INSTALL_PATH" ]; then
-			echo "$INSTALL_PATH is already exists"
-			echo "Please remove the directory and run the script again or set the another path that does not exist."
+			echo "Error: $INSTALL_PATH is already exists"
+			echo "Please choose one of the following three and run this script again"
+			echo "- Remove the directory and run the script again"
+			echo "- Set the prefix to another path that does not exist"
+			echo "- Use --overwrite option"
 			exit 1
 		fi
 	fi
@@ -376,7 +292,6 @@ function set_install_path() {
 	# INSTALL_PATH=$(cd "$(dirname "${INSTALL_PATH}")"pwd)/$(basename "$INSTALL_PATH")
 	mkdir -p "${user_submitted_dir}/${INSTALL_PATH}"
 	echo "INSTALL_PATH is set to: $INSTALL_PATH"
-
 }
 
 function is_enviroment_modules_installed() {
@@ -403,8 +318,11 @@ umask 0022
 user_submitted_dir=$(pwd)
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 get_args "$@"
-# Check whether the user wants to install or not
-check_install_programs
+
+# Set patch and tarball file names and check if the files exist
+UTCHEM_PATCH=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -type d -name patches)
+UTCHEM_TARBALL=$(find "$SCRIPT_PATH/utchem" -maxdepth 1 -name "utchem*tar*")
+check_utchem_files
 
 bash "$SCRIPT_PATH/check_requirements"
 echo "All requirements are configured. Proceeding..."
@@ -417,16 +335,17 @@ fi
 
 # Software path
 MODULEFILES="${INSTALL_PATH}/modulefiles"
-OPENMPI="${INSTALL_PATH}/openmpi-intel"
-DIRAC="${INSTALL_PATH}/dirac"
-MOLCAS="${INSTALL_PATH}/molcas"
 UTCHEM="${INSTALL_PATH}/utchem"
 mkdir -p "$UTCHEM"
 
 # Check whether the environment modules (http://modules.sourceforge.net/) is already installed
 is_enviroment_modules_installed
 
-setup_python
+# if python2 is not installed, install python2
+if ! type python2 >/dev/null; then
+	echo "python2 is not installed. Setup pyenv and install python2 and python3..."
+	source "$SCRIPT_PATH/setup-pyenv" --parallel "$SETUP_NPROCS"
+fi
 setup_utchem
 
 echo "End build UTChem"
