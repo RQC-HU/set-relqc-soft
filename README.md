@@ -79,16 +79,6 @@ Do you want to install DIRAC? (y/N)
     INSTALL_PATH=$HOME/build/softwares SETUP_NPROCS=12 INSTALL_ALL=YES bash setup.sh
   ```
 
-### Molcasのテスト
-
-- Molcasについては、テストコマンドをシェルスクリプト内で実行すると実行されずに終わってしまうのでビルド後に手動でテストを行ってください
-- 例として以下のようなコマンドでテストができます
-
-```sh
-# 3並列で並列実行のテストをする
-molcas verify --parallel 3
-```
-
 - コマンドについての詳細は molcas verify --help を参照してください
 
 ### インストール時に存在しているディレクトリ上にソフトウェアをインストールしたい場合

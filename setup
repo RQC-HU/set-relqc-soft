@@ -170,7 +170,14 @@ function setup_molcas() {
 		echo "ERROR: Molcas make failed with exit code $ret"
 		exit $ret
 	fi
+	echo "Molcas setup finished successfully."
 
+	echo "Starting Molcas test... (test log file: $SCRIPT_PATH/molcas-test.log, only failed tests are saved to this log file)"
+	set +e
+	molcas verify --parallel "$SETUP_NPROCS" 2>&1 | tee "$SCRIPT_PATH/molcas-test.log"
+	echo "Molcas test finished successfully."
+	cat "$SCRIPT_PATH/molcas-test.log"
+	set -e
 	cd "$SCRIPT_PATH"
 }
 
@@ -675,7 +682,6 @@ check_install_programs
 
 bash "$SCRIPT_PATH/check_requirements"
 echo "All requirements are configured. Proceeding..."
-
 
 set_process_number
 set_install_path
